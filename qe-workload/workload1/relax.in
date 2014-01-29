@@ -1,0 +1,55 @@
+&control
+   calculation = 'vc-relax'
+   prefix='Na2Fe2As2O',
+   pseudo_dir ='/home/jin/projects/asc14/suanli/test2/workload1/workload2-upf'
+   outdir='./tmp'
+        etot_conv_thr = 1.0E-5 ,
+        forc_conv_thr = 1.0D-4
+   tprnfor=.TRUE.
+   disk_io='none'
+/
+&system
+   ibrav=7,
+   celldm(1) =7.691188393, celldm(3)=3.756265356,
+   nat=7, ntyp=5,
+   ecutwfc=40, ecutrho=480,
+   occupations='smearing',smearing='gaussian',degauss=0.002,
+   nspin=2
+   starting_magnetization(2)=0.125
+   starting_magnetization(3)=-0.125
+!  nbnd=35
+!  lda_plus_u=.TRUE.
+!  Hubbard_U(2)=6.0
+/
+&electrons
+   electron_maxstep=300
+   mixing_beta = 0.3
+   conv_thr =  1.0d-10
+/
+&ions
+  bfgs_ndim= 3,
+  ion_dynamics='bfgs'
+  pot_extrapolation = 'second_order' ,
+  wfc_extrapolation = 'second_order' 
+/
+&CELL
+  cell_dynamics = 'bfgs' 
+/
+ATOMIC_SPECIES
+Na   22.99  Na.pw91-sp-van_ak.UPF 
+Fe1  55.845 Fe.pw91-sp-van_ak.UPF 
+Fe2  55.845 Fe.pw91-sp-van_ak.UPF 
+As   74.92  As.pw91-n-van.UPF
+O     16.00  O.pw91-van_ak.UPF 
+ATOMIC_POSITIONS {angstrom}      
+Na      0.0000000000     0.0000000000     4.7989032000
+Na      0.0000000000     0.0000000000    10.4890968000
+Fe1     0.0000000000    -2.0350000000     7.6440000000
+Fe2     2.0350000000     0.0000000000     7.6440000000
+As      0.0000000000     0.0000000000     1.8529056000
+As      0.0000000000     0.0000000000    13.4350944000
+O       0.0000000000     0.0000000000     7.6440000000
+K_POINTS {automatic}
+4 4 4 1 1 1
+npool=2
+
