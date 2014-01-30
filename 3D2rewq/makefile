@@ -30,4 +30,4 @@ $(TARGET): $(COBJS) $(CPPOBJS)
 	$(CXX) -o $(TARGETDIR)$@ -c $(CXXFLAGS) $<
 
 clean:
-	rm -f $(addprefix $(TARGETDIR),$(COBJS)) $(addprefix $(TARGETDIR),$(CPPOBJS))
+	rm -rf $(addprefix $(TARGETDIR),$(COBJS)) $(addprefix $(TARGETDIR),$(CPPOBJS))
