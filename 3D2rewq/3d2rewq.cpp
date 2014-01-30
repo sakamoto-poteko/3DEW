@@ -158,29 +158,42 @@ int main(int argc, char **argv)
 
     nshot=nxshot*nyshot;
     t0=1.0/frequency;
-    for(i=0;i<nz;i++)
-        for(j=0;j<ny;j++)
+
+    // Branch optmization
+    // TODO: Will compiler optimize the `condition'?
+    //       i.e Can I write `for(i=0;i< (nz < 210 ? nz : 210);i++)'?
+    int condition = nz < 210 ? nz : 210;
+    for(i=0; i < condition;i++) {
+        for(j=0;j<ny;j++) {
+            for(k=0;k<nx;k++) {
+                vpp[i*ny*nx+j*nx+k]=2300.;
+                vss[i*ny*nx+j*nx+k]=1232.;
+                density[i*ny*nx+j*nx+k]=1.;
+            }
+        }
+    }
+
+    condition = i < (nz < 260 ? nz : 260);
+    for(i=210; i < condition;i++) {
+        for(j=0;j<ny;j++) {
+            for(k=0;k<nx;k++) {
+                vpp[i*ny*nx+j*nx+k]=2800.;
+                vss[i*ny*nx+j*nx+k]=1509.;
+                density[i*ny*nx+j*nx+k]=2.;
+            }
+        }
+    }
+
+    for(i=260;i<nz;i++) {
+        for(j=0;j<ny;j++) {
             for(k=0;k<nx;k++)
             {
-                if(i<210)
-                {
-                    vpp[i*ny*nx+j*nx+k]=2300.;
-                    vss[i*ny*nx+j*nx+k]=1232.;
-                    density[i*ny*nx+j*nx+k]=1.;
-                }
-                else if(i>=210 && i<260)
-                {
-                    vpp[i*ny*nx+j*nx+k]=2800.;
-                    vss[i*ny*nx+j*nx+k]=1509.;
-                    density[i*ny*nx+j*nx+k]=2.;
-                }
-                else
-                {
-                    vpp[i*ny*nx+j*nx+k]=3500.;
-                    vss[i*ny*nx+j*nx+k]=1909.;
-                    density[i*ny*nx+j*nx+k]=2.5;
-                }
+                vpp[i*ny*nx+j*nx+k]=3500.;
+                vss[i*ny*nx+j*nx+k]=1909.;
+                density[i*ny*nx+j*nx+k]=2.5;
             }
+        }
+    }
 
     for(l=0;l<lt;l++)
     {
@@ -191,6 +204,7 @@ int main(int argc, char **argv)
         wave[l]=fx;
     }
 
+    // TODO: Data produced by code below are static. See table below
     if(mm==5)
     {
         c0=-2.927222164;
@@ -210,6 +224,23 @@ int main(int argc, char **argv)
     for(i=0;i<5;i++)
         for(j=0;j<5;j++)
             c[j][2+i]=c[i][1]*c[j][1];
+    /*
+     * mm == 5, c =
+     * 1.666667    0.833330    0.694439    -0.198416   0.049583    -0.008250   0.000667
+     * -0.238095   -0.238100   -0.198416   0.056692    -0.014167   0.002357    -0.000190
+     * 0.039683    0.059500    0.049583    -0.014167   0.003540    -0.000589   0.000048
+     * -0.004960   -0.009900   -0.008250   0.002357    -0.000589   0.000098    -0.000008
+     * 0.000317    0.000800    0.000667    -0.000190   0.000048    -0.000008   0.000001
+    */
+
+    /*
+     * mm != 5, c =
+     * 0.000000    0.833330    0.694439    -0.198416   0.049583    -0.008250   0.000667
+     * 0.000000    -0.238100   -0.198416   0.056692    -0.014167   0.002357    -0.000190
+     * 0.000000    0.059500    0.049583    -0.014167   0.003540    -0.000589   0.000048
+     * 0.000000    -0.009900   -0.008250   0.002357    -0.000589   0.000098    -0.000008
+     * 0.000000    0.000800    0.000667    -0.000190   0.000048    -0.000008   0.000001
+     */
 
     dtx=dt/unit;
     dtz=dt/unit;
