@@ -5,10 +5,25 @@
 #include <string.h>
 #include "sys/time.h"
 
+#include <mpi.h>
+#include "global.h"
+
+
 #define PIE 3.1415926
 
 int main(int argc, char **argv)
 {
+    MPI_Init(&argc, &argv);
+    int initFlag;
+    MPI_Initialized(&initFlag);
+    if (!initFlag) {
+        printf("MPI init failed\n");
+        return EXIT_FAILURE;
+    }
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
     int i,j,k,kk,kkk,l,mm=5;
     int nx,ny,nz,lt,nedge;
     int nleft,nright,nfront,nback,ntop,nbottom;
@@ -24,17 +39,17 @@ int main(int argc, char **argv)
     struct timeval start,end;
     float all_time;
 
-    float *u, *v, *w, *up, *up1, *up2, 
-          *vp, *vp1, *vp2, *wp, *wp1, *wp2, 
-          *us, *us1, *us2, *vs, *vs1, *vs2,
-          *ws, *ws1, *ws2, *vpp, *density, *vss;
+    float *u, *v, *w, *up, *up1, *up2,
+            *vp, *vp1, *vp2, *wp, *wp1, *wp2,
+            *us, *us1, *us2, *vs, *vs1, *vs2,
+            *ws, *ws1, *ws2, *vpp, *density, *vss;
     float c[5][7];
     float *wave;
     float nshot,t0,tt,c0;
     float dtx,dtz,dtxz,dr1,dr2,dtx4,dtz4,dtxz4;
     float xmax,px,sx;
     float vvp2,drd1,drd2,vvs2,tempux2,tempuy2,tempuz2,tempvx2,tempvy2,tempvz2,
-          tempwx2,tempwy2,tempwz2,tempuxz,tempuxy,tempvyz,tempvxy,tempwxz,tempwyz;
+            tempwx2,tempwy2,tempwz2,tempuxz,tempuxy,tempvyz,tempvxy,tempwxz,tempwyz;
     if(argc<4)
     {
         printf("please add 3 parameter: inpurfile, outfile, logfile\n");
@@ -211,9 +226,9 @@ int main(int argc, char **argv)
     for(ishot=1;ishot<=nshot;ishot++)
     {
         printf("shot=%d\n",ishot);
-	flog = fopen(logfile,"a");
+        flog = fopen(logfile,"a");
         fprintf(flog,"shot=%d\n",ishot);
-	fclose(flog);
+        fclose(flog);
         ncy_shot=ncy_shot1+(ishot/nxshot)*dyshot;
         ncx_shot=ncx_shot1+(ishot%nxshot)*dxshot;
 
@@ -332,49 +347,49 @@ int main(int argc, char **argv)
                             for(kkk=1;kkk<=mm;kkk++)
                             {
                                 tempuxz=tempuxz+c[kkk-1][1+kk]*(u[(k+kkk)*ny*nx+j*nx+(i+kk)]
-                                                   -u[(k-kkk)*ny*nx+j*nx+(i+kk)]
-                                                   +u[(k-kkk)*ny*nx+j*nx+(i-kk)]
-                                                   -u[(k+kkk)*ny*nx+j*nx+(i-kk)]);
+                                        -u[(k-kkk)*ny*nx+j*nx+(i+kk)]
+                                        +u[(k-kkk)*ny*nx+j*nx+(i-kk)]
+                                        -u[(k+kkk)*ny*nx+j*nx+(i-kk)]);
                                 tempuxy=tempuxy+c[kkk-1][1+kk]*(u[k*ny*nx+(j+kkk)*nx+(i+kk)]
-                                                   -u[k*ny*nx+(j-kkk)*nx+(i+kk)]
-                                                   +u[k*ny*nx+(j-kkk)*nx+(i-kk)]
-                                                   -u[k*ny*nx+(j+kkk)*nx+(i-kk)]);
+                                        -u[k*ny*nx+(j-kkk)*nx+(i+kk)]
+                                        +u[k*ny*nx+(j-kkk)*nx+(i-kk)]
+                                        -u[k*ny*nx+(j+kkk)*nx+(i-kk)]);
 
                                 tempvyz=tempvyz+c[kkk-1][1+kk]*(v[(k+kkk)*ny*nx+(j+kk)*nx+i]
-                                                   -v[(k-kkk)*ny*nx+(j+kk)*nx+i]
-                                                   +v[(k-kkk)*ny*nx+(j-kk)*nx+i]
-                                                   -v[(k+kkk)*ny*nx+(j-kk)*nx+i]);
+                                        -v[(k-kkk)*ny*nx+(j+kk)*nx+i]
+                                        +v[(k-kkk)*ny*nx+(j-kk)*nx+i]
+                                        -v[(k+kkk)*ny*nx+(j-kk)*nx+i]);
                                 tempvxy=tempvxy+c[kkk-1][1+kk]*(v[k*ny*nx+(j+kkk)*nx+(i+kk)]
-                                                   -v[k*ny*nx+(j-kkk)*nx+(i+kk)]
-                                                   +v[k*ny*nx+(j-kkk)*nx+(i-kk)]
-                                                   -v[k*ny*nx+(j+kkk)*nx+(i-kk)]);
+                                        -v[k*ny*nx+(j-kkk)*nx+(i+kk)]
+                                        +v[k*ny*nx+(j-kkk)*nx+(i-kk)]
+                                        -v[k*ny*nx+(j+kkk)*nx+(i-kk)]);
 
                                 tempwyz=tempwyz+c[kkk-1][1+kk]*(w[(k+kkk)*ny*nx+(j+kk)*nx+i]
-                                                   -w[(k-kkk)*ny*nx+(j+kk)*nx+i]
-                                                   +w[(k-kkk)*ny*nx+(j-kk)*nx+i]
-                                                   -w[(k+kkk)*ny*nx+(j-kk)*nx+i]);
+                                        -w[(k-kkk)*ny*nx+(j+kk)*nx+i]
+                                        +w[(k-kkk)*ny*nx+(j-kk)*nx+i]
+                                        -w[(k+kkk)*ny*nx+(j-kk)*nx+i]);
                                 tempwxz=tempwxz+c[kkk-1][1+kk]*(w[(k+kkk)*ny*nx+j*nx+(i+kk)]
-                                                   -w[(k-kkk)*ny*nx+j*nx+(i+kk)]
-                                                   +w[(k-kkk)*ny*nx+j*nx+(i-kk)]
-                                                   -w[(k+kkk)*ny*nx+j*nx+(i-kk)]);
+                                        -w[(k-kkk)*ny*nx+j*nx+(i+kk)]
+                                        +w[(k-kkk)*ny*nx+j*nx+(i-kk)]
+                                        -w[(k+kkk)*ny*nx+j*nx+(i-kk)]);
                             } // for(kkk=1;kkk<=mm;kkk++) end
                         } //for(kk=1;kk<=mm;kk++) end
                         up[k*ny*nx+j*nx+i]=2.*up1[k*ny*nx+j*nx+i]-up2[k*ny*nx+j*nx+i]
-                                          +tempux2+tempwxz*vvp2*dtz*dtx
-                                          +tempvxy*vvp2*dtz*dtx;
+                                +tempux2+tempwxz*vvp2*dtz*dtx
+                                +tempvxy*vvp2*dtz*dtx;
                         vp[k*ny*nx+j*nx+i]=2.*vp1[k*ny*nx+j*nx+i]-vp2[k*ny*nx+j*nx+i]
-                                          +tempvy2+tempuxy*vvp2*dtz*dtx
-                                          +tempwyz*vvp2*dtz*dtx;
+                                +tempvy2+tempuxy*vvp2*dtz*dtx
+                                +tempwyz*vvp2*dtz*dtx;
                         wp[k*ny*nx+j*nx+i]=2.*wp1[k*ny*nx+j*nx+i]-wp2[k*ny*nx+j*nx+i]
-                                          +tempwz2+tempuxz*vvp2*dtz*dtx
-                                          +tempvyz*vvp2*dtz*dtx
-                                          +px*wave[l-1];
+                                +tempwz2+tempuxz*vvp2*dtz*dtx
+                                +tempvyz*vvp2*dtz*dtx
+                                +px*wave[l-1];
                         us[k*ny*nx+j*nx+i]=2.*us1[k*ny*nx+j*nx+i]-us2[k*ny*nx+j*nx+i]+tempuy2+tempuz2
-                                          -tempvxy*vvs2*dtz*dtx-tempwxz*vvs2*dtz*dtx;
+                                -tempvxy*vvs2*dtz*dtx-tempwxz*vvs2*dtz*dtx;
                         vs[k*ny*nx+j*nx+i]=2.*vs1[k*ny*nx+j*nx+i]-vs2[k*ny*nx+j*nx+i]+tempvx2+tempvz2
-                                          -tempuxy*vvs2*dtz*dtx-tempwyz*vvs2*dtz*dtx;
+                                -tempuxy*vvs2*dtz*dtx-tempwyz*vvs2*dtz*dtx;
                         ws[k*ny*nx+j*nx+i]=2.*ws1[k*ny*nx+j*nx+i]-ws2[k*ny*nx+j*nx+i]+tempwx2+tempwy2
-                                          -tempuxz*vvs2*dtz*dtx-tempvyz*vvs2*dtz*dtx;
+                                -tempuxz*vvs2*dtz*dtx-tempvyz*vvs2*dtz*dtx;
                     }//for(i=nleft;i<nright;i++) end
             for(k=ntop;k<nbottom;k++)
                 for(j=nfront;j<nback;j++)
@@ -438,5 +453,9 @@ int main(int argc, char **argv)
     fprintf(flog,"------------end time------------\n");
     fclose(flog);
     system(tmp);
+
+
+    MPI_Finalize();
+    // Why return 1?
     return 1;
 }
