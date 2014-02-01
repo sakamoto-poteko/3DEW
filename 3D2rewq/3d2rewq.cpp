@@ -6,9 +6,11 @@
 #include "sys/time.h"
 
 #include <mpi.h>
-#include "global.h"
-
 #include <omp.h>
+
+#include "global.h"
+#include "helpers.h"
+
 
 
 #define PIE 3.1415926   // [Afa] Delicious fruit pie
@@ -264,32 +266,14 @@ int main(int argc, char **argv)
         ncy_shot=ncy_shot1+(ishot/nxshot)*dyshot;
         ncx_shot=ncx_shot1+(ishot%nxshot)*dxshot;
 
-        for(i=0;i<nz;i++)       // [Afa] Matrix is zeroed in every loop
-            for(j=0;j<ny;j++)   // i.e. The relation between those matrices in each loop is pretty loose
-                for(k=0;k<nx;k++)   // Matrices not zeroed are: vpp, density, vss and wave, and they're not changed below
-                {
-                    u[i*ny*nx+j*nx+k]=0.0f;
-                    v[i*ny*nx+j*nx+k]=0.0f;
-                    w[i*ny*nx+j*nx+k]=0.0f;
-                    up[i*ny*nx+j*nx+k]=0.0f;
-                    up1[i*ny*nx+j*nx+k]=0.0f;
-                    up2[i*ny*nx+j*nx+k]=0.0f;
-                    vp[i*ny*nx+j*nx+k]=0.0f;
-                    vp1[i*ny*nx+j*nx+k]=0.0f;
-                    vp2[i*ny*nx+j*nx+k]=0.0f;
-                    wp[i*ny*nx+j*nx+k]=0.0f;
-                    wp1[i*ny*nx+j*nx+k]=0.0f;
-                    wp2[i*ny*nx+j*nx+k]=0.0f;
-                    us[i*ny*nx+j*nx+k]=0.0f;
-                    us1[i*ny*nx+j*nx+k]=0.0f;
-                    us2[i*ny*nx+j*nx+k]=0.0f;
-                    vs[i*ny*nx+j*nx+k]=0.0f;
-                    vs1[i*ny*nx+j*nx+k]=0.0f;
-                    vs2[i*ny*nx+j*nx+k]=0.0f;
-                    ws[i*ny*nx+j*nx+k]=0.0f;
-                    ws1[i*ny*nx+j*nx+k]=0.0f;
-                    ws2[i*ny*nx+j*nx+k]=0.0f;
-                }//for(k=0;k<nx;k++) end
+        // [Afa] Matrix is zeroed in every loop
+        // i.e. The relation between those matrices in each loop is pretty loose
+        // Matrices not zeroed are: vpp, density, vss and wave, and they're not changed (read-only)
+
+        // TODO: [Afa] Get a better way to pass those pointers, and mark them as `restrict'
+        // And WHY are they using cpp as extension? C++11 doesn't support `restrict'
+        zero_matrices(u, w, ws2, up2, vp1, wp1, us, ws, wp, us2, us1, wp2,
+                      v, up1, nz, nx, up, ny, ws1, vs, vp2, vs1, vs2, vp);
 
         // [Afa] These values won't change. Move them out
         xmax=l*dt*velmax;

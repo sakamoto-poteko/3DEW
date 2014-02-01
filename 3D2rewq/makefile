@@ -4,8 +4,8 @@ LINKER=mpicxx
 
 TARGETDIR=build/
 
-CFLAGS= -O3 
-CXXFLAGS= -O3
+CFLAGS= -O3 -std=c99 $(PHI)
+CXXFLAGS= -O3 -std=c++11 $(PHI)
 
 CFILES=$(wildcard *.c)
 CPPFILES=$(wildcard *.cpp)
