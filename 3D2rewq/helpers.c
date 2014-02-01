@@ -26,53 +26,53 @@ void zero_matrices(float *u, float *w, float *ws2, float *up2, float *vp1, float
 
     // [Afa] offload documentation:
     // http://software.intel.com/sites/products/documentation/doclib/iss/2013/compiler/cpp-lin/GUID-EAB414FD-40C6-4054-B094-0BA70824E2A2.htm
-#pragma offload target(mic:MIC_DEV) \
+#pragma offload target(mic) \
     out(u:length(t)) out(v:length(t)) out(w:length(t)) out(up:length(t)) out(up1:length(t)) out(up2:length(t)) \
     out(vp:length(t)) out(vp1:length(t)) out(vp2:length(t)) out(wp:length(t)) out(wp1:length(t)) out(wp2:length(t)) \
     out(us:length(t)) out(us1:length(t)) out(us2:length(t)) out(vs:length(t)) out(vs1:length(t)) out(vs2:length(t)) \
     out(ws:length(t)) out(ws1:length(t)) out(ws2:length(t))
     {
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) u   [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) v   [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) w   [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) up  [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) up1 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) up2 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) vp  [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) vp1 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) vp2 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) wp  [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) wp1 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) wp2 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) us  [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) us1 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) us2 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) vs  [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) vs1 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) vs2 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) ws  [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) ws1 [i] = 0.0f;
-        #pragma parallel for
+        #pragma omp parallel for
         for (int i = 0; i < t; ++i) ws2 [i] = 0.0f;
     }
 }
