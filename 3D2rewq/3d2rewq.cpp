@@ -296,7 +296,7 @@ int main(int argc, char **argv)
 
     // [Afa] *About Nodes Number* nshot (i.e nxshot * nyshot) should be multiple of node numbers,
     //       or there will be hungry processes
-    int loop_per_proc = nshot % world_size == 0 ? nshot / world_size : nshot / world_size + 1;
+    int loop_per_proc = ((int)nshot % world_size == 0) ? (nshot / world_size) : (nshot / world_size + 1);
     //    for(ishot=1;ishot<=nshot;ishot++)   // [Afa] nshot is 20 in para1.in, but 200 in para2.in
     for (int loop_index = 0; loop_index < loop_per_proc; ++loop_index)
     {
@@ -516,20 +516,23 @@ int main(int argc, char **argv)
 
         if (proc_rank == 0) {   // Master
             for (int proc_index = 1; proc_index < world_size; ++proc_index) {
+                MPI_Request mpi_request;
                 int final_result_start_pos = loop_index + proc_index * loop_per_proc * ny * nx;
                 // [Afa] This is ishot - 1. final_result has the size of nshot * nx * ny * sizeof(float)
                 MPI_Irecv(final_result + final_result_start_pos, ny * nx, MPI_FLOAT, proc_index, MPI_RESULT_TAG, MPI_COMM_WORLD,
-                          MPI_STATUS_IGNORE);
+                          &mpi_request);
+                // [Afa] I don't really care if all operations are successful. I'm not going to reuse the buffer, and it is freed after
+                //       the MPI_Finalize call
             }
         } else {
-            MPI_Isend(up+169*ny*nx, ny*nx, MPI_FLOAT, 0, MPI_RESULT_TAG, MPI_COMM_WORLD, MPI_REQUEST_NULL);
+            MPI_Request mpi_request;
+            MPI_Isend(up+169*ny*nx, ny*nx, MPI_FLOAT, 0, MPI_RESULT_TAG, MPI_COMM_WORLD, &mpi_request);
+            MPI_Wait(&mpi_request, MPI_STATUS_IGNORE);
         }
 
     }//for(ishot=1;ishot<=nshot;ishot++) end
     if (proc_rank == 0) {
         fclose(fout);
-        fwrite(final_result, sizeof(float), ny * nx * nshot,fout);    // This is the original fwrite
-        free(final_result);
     }
 
     free(u);
@@ -558,7 +561,13 @@ int main(int argc, char **argv)
     free(vss);
     free(wave);
 
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Finalize();
+
     if (proc_rank == 0) {
+        fwrite(final_result, sizeof(float), ny * nx * nshot,fout);    // This is the original fwrite
+        free(final_result);
+
         gettimeofday(&end,NULL);
         all_time = (end.tv_sec-start.tv_sec)+(float)(end.tv_usec-start.tv_usec)/1000000.0;
         printf("run time:\t%f s\n",all_time);
@@ -571,8 +580,7 @@ int main(int argc, char **argv)
         system(tmp);
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Finalize();
+
     // Why return 1?
     return 1;
 }
