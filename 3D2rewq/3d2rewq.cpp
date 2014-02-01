@@ -133,27 +133,31 @@ int main(int argc, char **argv)
     fprintf(flog,"dyshot=%d\n\n",dyshot);
     fclose(flog);
 
-    u       = (float*)malloc(sizeof(float)*nz*ny*nx);
-    v       = (float*)malloc(sizeof(float)*nz*ny*nx);
-    w       = (float*)malloc(sizeof(float)*nz*ny*nx);
-    up      = (float*)malloc(sizeof(float)*nz*ny*nx);
-    up1     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    up2     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    vp      = (float*)malloc(sizeof(float)*nz*ny*nx);
-    vp1     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    vp2     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    wp      = (float*)malloc(sizeof(float)*nz*ny*nx);
-    wp1     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    wp2     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    us      = (float*)malloc(sizeof(float)*nz*ny*nx);
-    us1     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    us2     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    vs      = (float*)malloc(sizeof(float)*nz*ny*nx);
-    vs1     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    vs2     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    ws      = (float*)malloc(sizeof(float)*nz*ny*nx);
-    ws1     = (float*)malloc(sizeof(float)*nz*ny*nx);
-    ws2     = (float*)malloc(sizeof(float)*nz*ny*nx);
+
+    // [Afa] It is recommended that for Intel Xeon Phi data is 64-byte aligned.
+    // Upon successful completion, posix_memalign() shall return zero
+    if (posix_memalign((void **)&u  , 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&v  , 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&w  , 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&up , 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&up1, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&up2, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&vp , 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&vp1, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&vp2, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&wp , 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&wp1, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&wp2, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&us , 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&us1, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&us2, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&vs , 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&vs1, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&vs2, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&ws , 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&ws1, 64, sizeof(float)*nz*ny*nx)) return 2;
+    if (posix_memalign((void **)&ws2, 64, sizeof(float)*nz*ny*nx)) return 2;
+    // [Afa] Those are not offloaded to phi yet
     vpp     = (float*)malloc(sizeof(float)*nz*ny*nx);
     density = (float*)malloc(sizeof(float)*nz*ny*nx);
     vss     = (float*)malloc(sizeof(float)*nz*ny*nx);
