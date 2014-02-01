@@ -9,7 +9,7 @@
 #include "global.h"
 
 
-#define PIE 3.1415926
+#define PIE 3.1415926   // [Afa] Delicious fruit pie
 
 int main(int argc, char **argv)
 {
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
     nshot=nxshot*nyshot;
     t0=1.0/frequency;
 
-    // Branch optmization
+    // [Afa] Branch optmization
     // TODO: Will compiler optimize the `condition'?
     //       i.e Can I write `for(i=0;i< (nz < 210 ? nz : 210);i++)'?
     int condition = nz < 210 ? nz : 210;
@@ -204,7 +204,7 @@ int main(int argc, char **argv)
         wave[l]=fx;
     }
 
-    // TODO: Data produced by code below are static. See table below
+    // TODO: [Afa] Data produced by code below are static. See table below
     if(mm==5)
     {
         c0=-2.927222164;
@@ -289,25 +289,27 @@ int main(int argc, char **argv)
                     ws1[i*ny*nx+j*nx+k]=0.0f;
                     ws2[i*ny*nx+j*nx+k]=0.0f;
                 }//for(k=0;k<nx;k++) end
+
+        // [Afa] These values won't change. Move them out
+        xmax=l*dt*velmax;
+        nleft=ncx_shot-xmax/unit-10;
+        nright=ncx_shot+xmax/unit+10;
+        nfront=ncy_shot-xmax/unit-10;
+        nback=ncy_shot+xmax/unit+10;
+        ntop=ncz_shot-xmax/unit-10;
+        nbottom=ncz_shot+xmax/unit+10;
+        if(nleft<5) nleft=5;
+        if(nright>nx-5) nright=nx-5;
+        if(nfront<5) nfront=5;
+        if(nback>ny-5) nback=ny-5;
+        if(ntop<5) ntop=5;
+        if(nbottom>nz-5) nbottom=nz-5;
+        ntop = ntop-1;
+        nfront = nfront-1;
+        nleft = nleft-1;
+
         for(l=1;l<=lt;l++)
         {
-            xmax=l*dt*velmax;
-            nleft=ncx_shot-xmax/unit-10;
-            nright=ncx_shot+xmax/unit+10;
-            nfront=ncy_shot-xmax/unit-10;
-            nback=ncy_shot+xmax/unit+10;
-            ntop=ncz_shot-xmax/unit-10;
-            nbottom=ncz_shot+xmax/unit+10;
-            if(nleft<5) nleft=5;
-            if(nright>nx-5) nright=nx-5;
-            if(nfront<5) nfront=5;
-            if(nback>ny-5) nback=ny-5;
-            if(ntop<5) ntop=5;
-            if(nbottom>nz-5) nbottom=nz-5;
-
-            ntop = ntop-1;
-            nfront = nfront-1;
-            nleft = nleft-1;
             for(k=ntop;k<nbottom;k++)
                 for(j=nfront;j<nback;j++)
                     for(i=nleft;i<nright;i++)
