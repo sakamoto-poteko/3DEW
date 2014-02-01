@@ -1,2 +1,1 @@
-1. When building on a machine with Xeon Phi, add following to arguments of `make':
-    PHI=-D_WITH_PHI
+1. When building on a machine with Xeon Phi, do `make PHI=-D_WITH_PHI'
