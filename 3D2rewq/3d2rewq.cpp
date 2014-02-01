@@ -8,6 +8,8 @@
 #include <mpi.h>
 #include "global.h"
 
+#include <omp.h>
+
 
 #define PIE 3.1415926   // [Afa] Delicious fruit pie
 
@@ -48,8 +50,7 @@ int main(int argc, char **argv)
     float nshot,t0,tt,c0;
     float dtx,dtz,dtxz,dr1,dr2,dtx4,dtz4,dtxz4;
     float xmax,px,sx;
-    float vvp2,drd1,drd2,vvs2,tempux2,tempuy2,tempuz2,tempvx2,tempvy2,tempvz2,
-            tempwx2,tempwy2,tempwz2,tempuxz,tempuxy,tempvyz,tempvxy,tempwxz,tempwyz;
+    float vvp2,drd1,drd2,vvs2;
     if(argc<4)
     {
         printf("please add 3 parameter: inpurfile, outfile, logfile\n");
@@ -254,7 +255,7 @@ int main(int argc, char **argv)
     dtxz4=dtx*dtx*dtz*dtz;
 
     fout=fopen(outfile,"wb");
-    for(ishot=1;ishot<=nshot;ishot++)
+    for(ishot=1;ishot<=nshot;ishot++)   // [Afa] nshot is 20 in para1.in, but 200 in para2.in
     {
         printf("shot=%d\n",ishot);
         flog = fopen(logfile,"a");
@@ -263,9 +264,9 @@ int main(int argc, char **argv)
         ncy_shot=ncy_shot1+(ishot/nxshot)*dyshot;
         ncx_shot=ncx_shot1+(ishot%nxshot)*dxshot;
 
-        for(i=0;i<nz;i++)
-            for(j=0;j<ny;j++)
-                for(k=0;k<nx;k++)
+        for(i=0;i<nz;i++)       // [Afa] Matrix is zeroed in every loop
+            for(j=0;j<ny;j++)   // i.e. The relation between those matrices in each loop is pretty loose
+                for(k=0;k<nx;k++)   // Matrices not zeroed are: vpp, density, vss and wave, and they're not changed below
                 {
                     u[i*ny*nx+j*nx+k]=0.0f;
                     v[i*ny*nx+j*nx+k]=0.0f;
@@ -331,6 +332,9 @@ int main(int argc, char **argv)
                         vvs2=vss[k*ny*nx+j*nx+i]*vss[k*ny*nx+j*nx+i];
                         drd1=dr1*vvs2;
                         drd2=dr2*vvs2;
+
+                        float tempux2, tempuy2, tempuz2, tempvx2, tempvy2, tempvz2, tempwx2, tempwy2,
+                                tempwz2, tempuxz, tempuxy, tempvyz, tempvxy, tempwxz, tempwyz;
 
                         tempux2=0.0f;
                         tempuy2=0.0f;
@@ -446,6 +450,7 @@ int main(int argc, char **argv)
                         ws1[k*ny*nx+j*nx+i]=ws[k*ny*nx+j*nx+i];
                     }//for(i=nleft;i<nright;i++) end
         }//for(l=1;l<=lt;l++) end
+        // [Afa] Do we need to keep the order of data?
         fwrite(up+169*ny*nx,sizeof(float),ny*nx,fout);
     }//for(ishot=1;ishot<=nshot;ishot++) end
     fclose(fout);
