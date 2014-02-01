@@ -84,28 +84,70 @@ void zero_matrices(float *u, float *w, float *ws2, float *up2, float *vp1, float
 {
     int t = nx * ny * nz;       // [Afa] Total elements number in an array
     // [Afa] That freaking big loop! Really bad for cache and SIMD. Decomposed it
-    // [Afa] NB: I didn't put OpenMP parallel directive here since I don't know
-    //           if we're using 1 core per process or 1 node per process
+    // AVX can process 8 float at a time
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) u   [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) v   [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) w   [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) up  [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) up1 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) up2 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) vp  [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) vp1 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) vp2 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) wp  [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) wp1 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) wp2 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) us  [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) us1 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) us2 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) vs  [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) vs1 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) vs2 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) ws  [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) ws1 [i] = 0.0f;
+    #pragma omp parallel for
+    #pragma omp simd collapse(8)
     for (int i = 0; i < t; ++i) ws2 [i] = 0.0f;
 }
+
 #endif

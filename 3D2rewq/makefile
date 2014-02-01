@@ -4,8 +4,10 @@ LINKER=mpicxx
 
 TARGETDIR=build/
 
-CFLAGS= -O3 -std=c99 $(PHI)
-CXXFLAGS= -O3 -std=c++11 $(PHI)
+COMMON= -O3 -openmp
+CFLAGS= $(COMMON) -std=c99 $(PHI) -vec_report
+CXXFLAGS= $(COMMON) -std=c++11 $(PHI) -vec_report
+LDFLAGS= $(COMMON)
 
 CFILES=$(wildcard *.c)
 CPPFILES=$(wildcard *.cpp)
