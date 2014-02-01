@@ -53,6 +53,7 @@ int main(int argc, char **argv)
     float dtx,dtz,dtxz,dr1,dr2,dtx4,dtz4,dtxz4;
     float xmax,px,sx;
     float vvp2,drd1,drd2,vvs2;
+    float *final_result;    // [Afa] Final result
     if(argc<4)
     {
         printf("please add 3 parameter: inpurfile, outfile, logfile\n");
@@ -66,12 +67,13 @@ int main(int argc, char **argv)
     strcpy(tmp,"date ");
     strncat(tmp, ">> ",3);
     strncat(tmp, logfile, strlen(logfile));
-    flog = fopen(logfile,"w");
-    fprintf(flog,"------------start time------------\n");
-    fclose(flog);
-    system(tmp);
-    gettimeofday(&start,NULL);
-
+    if (proc_rank == 0) {
+        flog = fopen(logfile,"w");
+        fprintf(flog,"------------start time------------\n");
+        fclose(flog);
+        system(tmp);
+        gettimeofday(&start,NULL);
+    }
     fin = fopen(infile,"r");
     if(fin == NULL)
     {
@@ -113,27 +115,29 @@ int main(int argc, char **argv)
     printf("unit=%f\n",unit);
     printf("dxshot=%d\n",dxshot);
     printf("dyshot=%d\n\n",dyshot);
-    flog = fopen(logfile,"a");
-    fprintf(flog,"\n--------workload parameter--------\n");
-    fprintf(flog,"nx=%d\n",nx);
-    fprintf(flog,"ny=%d\n",ny);
-    fprintf(flog,"nz=%d\n",nz);
-    fprintf(flog,"lt=%d\n",lt);
-    fprintf(flog,"nedge=%d\n",nedge);
-    fprintf(flog,"ncx_shot1=%d\n",ncx_shot1);
-    fprintf(flog,"ncy_shot1=%d\n",ncy_shot1);
-    fprintf(flog,"ncz_shot=%d\n",ncz_shot);
-    fprintf(flog,"nxshot=%d\n",nxshot);
-    fprintf(flog,"nyshot=%d\n",nyshot);
-    fprintf(flog,"frequency=%f\n",frequency);
-    fprintf(flog,"velmax=%f\n",velmax);
-    fprintf(flog,"dt=%f\n",dt);
-    fprintf(flog,"unit=%f\n",unit);
-    fprintf(flog,"dxshot=%d\n",dxshot);
-    fprintf(flog,"dyshot=%d\n\n",dyshot);
-    fclose(flog);
+    if (proc_rank == 0) {   // Master
+        flog = fopen(logfile,"a");
+        fprintf(flog,"\n--------workload parameter--------\n");
+        fprintf(flog,"nx=%d\n",nx);
+        fprintf(flog,"ny=%d\n",ny);
+        fprintf(flog,"nz=%d\n",nz);
+        fprintf(flog,"lt=%d\n",lt);
+        fprintf(flog,"nedge=%d\n",nedge);
+        fprintf(flog,"ncx_shot1=%d\n",ncx_shot1);
+        fprintf(flog,"ncy_shot1=%d\n",ncy_shot1);
+        fprintf(flog,"ncz_shot=%d\n",ncz_shot);
+        fprintf(flog,"nxshot=%d\n",nxshot);
+        fprintf(flog,"nyshot=%d\n",nyshot);
+        fprintf(flog,"frequency=%f\n",frequency);
+        fprintf(flog,"velmax=%f\n",velmax);
+        fprintf(flog,"dt=%f\n",dt);
+        fprintf(flog,"unit=%f\n",unit);
+        fprintf(flog,"dxshot=%d\n",dxshot);
+        fprintf(flog,"dyshot=%d\n\n",dyshot);
+        fclose(flog);
+    }
 
-
+#ifdef _WITH_PHI
     // [Afa] It is recommended that for Intel Xeon Phi data is 64-byte aligned.
     // Upon successful completion, posix_memalign() shall return zero
     if (posix_memalign((void **)&u  , 64, sizeof(float)*nz*ny*nx)) return 2;
@@ -157,6 +161,29 @@ int main(int argc, char **argv)
     if (posix_memalign((void **)&ws , 64, sizeof(float)*nz*ny*nx)) return 2;
     if (posix_memalign((void **)&ws1, 64, sizeof(float)*nz*ny*nx)) return 2;
     if (posix_memalign((void **)&ws2, 64, sizeof(float)*nz*ny*nx)) return 2;
+#else
+    u       = (float*)malloc(sizeof(float)*nz*ny*nx);
+    v       = (float*)malloc(sizeof(float)*nz*ny*nx);
+    w       = (float*)malloc(sizeof(float)*nz*ny*nx);
+    up      = (float*)malloc(sizeof(float)*nz*ny*nx);
+    up1     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    up2     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    vp      = (float*)malloc(sizeof(float)*nz*ny*nx);
+    vp1     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    vp2     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    wp      = (float*)malloc(sizeof(float)*nz*ny*nx);
+    wp1     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    wp2     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    us      = (float*)malloc(sizeof(float)*nz*ny*nx);
+    us1     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    us2     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    vs      = (float*)malloc(sizeof(float)*nz*ny*nx);
+    vs1     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    vs2     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    ws      = (float*)malloc(sizeof(float)*nz*ny*nx);
+    ws1     = (float*)malloc(sizeof(float)*nz*ny*nx);
+    ws2     = (float*)malloc(sizeof(float)*nz*ny*nx);
+#endif
     // [Afa] Those are not offloaded to phi yet
     vpp     = (float*)malloc(sizeof(float)*nz*ny*nx);
     density = (float*)malloc(sizeof(float)*nz*ny*nx);
@@ -165,6 +192,9 @@ int main(int argc, char **argv)
 
     nshot=nxshot*nyshot;
     t0=1.0/frequency;
+
+    if (proc_rank == 0)
+        final_result = (float *)malloc(sizeof(float) * ny * nx * nshot);
 
     // [Afa] Branch optmization
     // TODO: Will compiler optimize the `condition'?
@@ -260,26 +290,69 @@ int main(int argc, char **argv)
     dtz4=dtz*dtz*dtz*dtz;
     dtxz4=dtx*dtx*dtz*dtz;
 
-    fout=fopen(outfile,"wb");
-    for(ishot=1;ishot<=nshot;ishot++)   // [Afa] nshot is 20 in para1.in, but 200 in para2.in
+    if (proc_rank == 0) {
+        fout=fopen(outfile,"wb");
+    }
+
+    // [Afa] *About Nodes Number* nshot (i.e nxshot * nyshot) should be multiple of node numbers,
+    //       or there will be hungry processes
+    int loop_per_proc = nshot % world_size == 0 ? nshot / world_size : nshot / world_size + 1;
+    //    for(ishot=1;ishot<=nshot;ishot++)   // [Afa] nshot is 20 in para1.in, but 200 in para2.in
+    for (int loop_index = 0; loop_index < loop_per_proc; ++loop_index)
     {
-        printf("shot=%d\n",ishot);
-        flog = fopen(logfile,"a");
-        fprintf(flog,"shot=%d\n",ishot);
-        fclose(flog);
+        ishot = loop_index + proc_rank * loop_per_proc + 1; // [Afa] See commented code 2 lines above to understand this line
+        // TODO: [Afa] Change those to non-block message-passing, really ugly code
+        if (ishot <= nshot) { // [Afa] ishot <= nshot
+            printf("shot=%d, process %d\n",ishot, proc_rank);
+
+            char msg[100];
+
+            if (proc_rank == 0) {   // Root process
+                flog = fopen(logfile,"a");
+                fprintf(flog,"shot=%d, process %d\n",ishot, proc_rank); // Print root
+                for (int proc_i = 1; i < world_size; ++i) {
+                    MPI_Recv(msg, 100, MPI_CHAR, proc_i, MPI_LOG_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    fprintf(flog,"%s", msg);
+                }
+                fclose(flog);
+            } else {
+                sprintf(msg, "shot=%d, process %d\n", ishot, proc_rank);
+                MPI_Send(msg, strlen(msg) + 1, MPI_CHAR, 0, MPI_LOG_TAG, MPI_COMM_WORLD);
+            }
+
+        } else {
+            printf("shot=HUNGRY, process %d\n",proc_rank);
+
+            char msg[100];
+            if (proc_rank == 0) {   // Root process
+                flog = fopen(logfile,"a");
+                fprintf(flog,"shot=HUNGRY, process %d\n", proc_rank); // Print root
+                for (int proc_i = 1; i < world_size; ++i) {
+                    MPI_Recv(msg, 100, MPI_CHAR, proc_i, MPI_LOG_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    fprintf(flog,"%s", msg);
+                }
+                fclose(flog);
+            } else {
+                sprintf(msg, "shot=HUNGRY, process %d\n", proc_rank);
+                MPI_Send(msg, strlen(msg) + 1, MPI_CHAR, 0, MPI_LOG_TAG, MPI_COMM_WORLD);
+            }
+
+            continue;
+        }
         ncy_shot=ncy_shot1+(ishot/nxshot)*dyshot;
         ncx_shot=ncx_shot1+(ishot%nxshot)*dxshot;
 
         // [Afa] Matrix is zeroed in every loop
         // i.e. The relation between those matrices in each loop is pretty loose
         // Matrices not zeroed are: vpp, density, vss and wave, and they're not changed (read-only)
+        // We only need to partially collect matrix `up'
 
         // TODO: [Afa] Get a better way to pass those pointers, and mark them as `restrict'
         // And WHY are they using cpp as extension? C++11 doesn't support `restrict'
         zero_matrices(u, w, ws2, up2, vp1, wp1, us, ws, wp, us2, us1, wp2,
                       v, up1, nz, nx, up, ny, ws1, vs, vp2, vs1, vs2, vp);
 
-        // [Afa] These values won't change. Move them out
+        // [Afa] These values won't change. Moved them out
         xmax=l*dt*velmax;
         nleft=ncx_shot-xmax/unit-10;
         nright=ncx_shot+xmax/unit+10;
@@ -439,9 +512,25 @@ int main(int argc, char **argv)
                     }//for(i=nleft;i<nright;i++) end
         }//for(l=1;l<=lt;l++) end
         // [Afa] Do we need to keep the order of data?
-        fwrite(up+169*ny*nx,sizeof(float),ny*nx,fout);
+        //        fwrite(up+169*ny*nx,sizeof(float),ny*nx,fout);    // This is the original fwrite
+
+        if (proc_rank == 0) {   // Master
+            for (int proc_index = 1; proc_index < world_size; ++proc_index) {
+                int final_result_start_pos = loop_index + proc_index * loop_per_proc * ny * nx;
+                // [Afa] This is ishot - 1. final_result has the size of nshot * nx * ny * sizeof(float)
+                MPI_Irecv(final_result + final_result_start_pos, ny * nx, MPI_FLOAT, proc_index, MPI_RESULT_TAG, MPI_COMM_WORLD,
+                          MPI_STATUS_IGNORE);
+            }
+        } else {
+            MPI_Isend(up+169*ny*nx, ny*nx, MPI_FLOAT, 0, MPI_RESULT_TAG, MPI_COMM_WORLD, MPI_REQUEST_NULL);
+        }
+
     }//for(ishot=1;ishot<=nshot;ishot++) end
-    fclose(fout);
+    if (proc_rank == 0) {
+        fclose(fout);
+        fwrite(final_result, sizeof(float), ny * nx * nshot,fout);    // This is the original fwrite
+        free(final_result);
+    }
 
     free(u);
     free(v);
@@ -469,18 +558,20 @@ int main(int argc, char **argv)
     free(vss);
     free(wave);
 
-    gettimeofday(&end,NULL);
-    all_time = (end.tv_sec-start.tv_sec)+(float)(end.tv_usec-start.tv_usec)/1000000.0;
-    printf("run time:\t%f s\n",all_time);
-    flog = fopen(logfile,"a");
-    fprintf(flog,"\nrun time:\t%f s\n\n",all_time);
-    fclose(flog);
-    flog = fopen(logfile,"a");
-    fprintf(flog,"------------end time------------\n");
-    fclose(flog);
-    system(tmp);
+    if (proc_rank == 0) {
+        gettimeofday(&end,NULL);
+        all_time = (end.tv_sec-start.tv_sec)+(float)(end.tv_usec-start.tv_usec)/1000000.0;
+        printf("run time:\t%f s\n",all_time);
+        flog = fopen(logfile,"a");
+        fprintf(flog,"\nrun time:\t%f s\n\n",all_time);
+        fclose(flog);
+        flog = fopen(logfile,"a");
+        fprintf(flog,"------------end time------------\n");
+        fclose(flog);
+        system(tmp);
+    }
 
-
+    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
     // Why return 1?
     return 1;

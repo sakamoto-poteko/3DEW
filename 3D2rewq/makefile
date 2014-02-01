@@ -4,7 +4,7 @@ LINKER=mpicxx
 
 TARGETDIR=build/
 
-COMMON= -O3 -openmp
+COMMON= -O3 -openmp -xAVX -g
 CFLAGS= $(COMMON) -std=c99 $(PHI) -vec_report
 CXXFLAGS= $(COMMON) -std=c++11 $(PHI) -vec_report
 LDFLAGS= $(COMMON)

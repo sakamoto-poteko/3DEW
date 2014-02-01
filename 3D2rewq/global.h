@@ -5,7 +5,8 @@
 extern "C" {
 #endif
 
-
+#define MPI_LOG_TAG 10
+#define MPI_RESULT_TAG 20
 
 
 extern int proc_rank;
