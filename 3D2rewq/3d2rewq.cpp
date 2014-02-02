@@ -491,12 +491,12 @@ int main(int argc, char **argv)
         // [Afa] Do we need to keep the order of data?
         //        fwrite(up+169*ny*nx,sizeof(float),ny*nx,fout);    // This is the original fwrite
 
-        MPI_File_write(mpi_fout, up+169*ny*nx, ny * nx, MPI_FLOAT, &mpi_status);
+        MPI_File_write(mpi_fout, up + 169 * ny * nx, ny * nx, MPI_FLOAT, &mpi_status);
 
     }//for(ishot=1;ishot<=nshot;ishot++) end
-    if (proc_rank == 0) {
-        fclose(fout);
-    }
+
+    MPI_File_close(&mpi_fout);
+    MPI_File_close(&mpi_flog);
 
     free(u);
     free(v);
