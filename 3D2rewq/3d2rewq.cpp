@@ -496,7 +496,7 @@ int main(int argc, char **argv)
         // [Afa] Do we need to keep the order of data?
         //        fwrite(up+169*ny*nx,sizeof(float),ny*nx,fout);    // This is the original fwrite
 
-        MPI_File_seek(mpi_fout, 0, MPI_SEEK_END);
+        MPI_File_seek(mpi_fout, ishot * ny * nx * sizeof(float), MPI_SEEK_SET);
         MPI_File_write(mpi_fout, up + 169 * ny * nx, ny * nx, MPI_FLOAT, &mpi_status);
     }//for(ishot=1;ishot<=nshot;ishot++) end
 
