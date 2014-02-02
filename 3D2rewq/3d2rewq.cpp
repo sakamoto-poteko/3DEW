@@ -40,6 +40,8 @@ int main(int argc, char **argv)
     int nxshot,nyshot,dxshot,dyshot;
     char infile[80],outfile[80],logfile[80],tmp[80];
     FILE  *fin, *fout, *flog;
+    MPI_File mpi_flog, mpi_fout;
+    MPI_Status mpi_status;
     struct timeval start,end;
     float all_time;
 
@@ -52,13 +54,18 @@ int main(int argc, char **argv)
     float nshot,t0,tt,c0;
     float dtx,dtz,dtxz,dr1,dr2,dtx4,dtz4,dtxz4;
     float xmax,px,sx;
-    float vvp2,drd1,drd2,vvs2;
-    float *final_result;    // [Afa] Final result
+    float vvp2,drd1,drd2,vvs2, tempux2, tempuy2, tempuz2, tempvx2,
+            tempvy2, tempvz2, tempwx2, tempwy2, tempwz2, tempuxz,
+            tempuxy, tempvyz, tempvxy, tempwxz, tempwyz;
+    char message[100];
+
     if(argc<4)
     {
         printf("please add 3 parameter: inpurfile, outfile, logfile\n");
         exit(0);
     }
+
+    message[99] = 0;    // Avoid string buffer overrun
 
     strcpy(infile,argv[1]);
     strcpy(outfile,argv[2]);
@@ -193,9 +200,6 @@ int main(int argc, char **argv)
     nshot=nxshot*nyshot;
     t0=1.0/frequency;
 
-    if (proc_rank == 0)
-        final_result = (float *)malloc(sizeof(float) * ny * nx * nshot);
-
     // [Afa] Branch optmization
     // TODO: Will compiler optimize the `condition'?
     //       i.e Can I write `for(i=0;i< (nz < 210 ? nz : 210);i++)'?
@@ -291,8 +295,13 @@ int main(int argc, char **argv)
     dtxz4=dtx*dtx*dtz*dtz;
 
     if (proc_rank == 0) {
-        fout=fopen(outfile,"wb");
-    }
+        fout = fopen(outfile, "wb");
+        fclose(fout);
+    }   // [Afa] Truncate file. We need a prettier way
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_File_open(MPI_COMM_WORLD, outfile, MPI_MODE_APPEND | MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_fout);
+    MPI_File_open(MPI_COMM_WORLD, logfile, MPI_MODE_APPEND | MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_flog);
 
     // [Afa] *About Nodes Number* nshot (i.e nxshot * nyshot) should be multiple of node numbers,
     //       or there will be hungry processes
@@ -301,42 +310,14 @@ int main(int argc, char **argv)
     for (int loop_index = 0; loop_index < loop_per_proc; ++loop_index)
     {
         ishot = loop_index + proc_rank * loop_per_proc + 1; // [Afa] See commented code 2 lines above to understand this line
-        // TODO: [Afa] Change those to non-block message-passing, really ugly code
         if (ishot <= nshot) { // [Afa] ishot <= nshot
             printf("shot=%d, process %d\n",ishot, proc_rank);
-
-            char msg[100];
-
-            if (proc_rank == 0) {   // Root process
-                flog = fopen(logfile,"a");
-                fprintf(flog,"shot=%d, process %d\n",ishot, proc_rank); // Print root
-                for (int proc_i = 1; i < world_size; ++i) {
-                    MPI_Recv(msg, 100, MPI_CHAR, proc_i, MPI_LOG_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    fprintf(flog,"%s", msg);
-                }
-                fclose(flog);
-            } else {
-                sprintf(msg, "shot=%d, process %d\n", ishot, proc_rank);
-                MPI_Send(msg, strlen(msg) + 1, MPI_CHAR, 0, MPI_LOG_TAG, MPI_COMM_WORLD);
-            }
-
+            snprintf(message, 99, "shot=%d, process %d\n", ishot, proc_rank);
+            MPI_File_write(mpi_flog, message, strlen(message), MPI_CHAR, &mpi_status);
         } else {
             printf("shot=HUNGRY, process %d\n",proc_rank);
-
-            char msg[100];
-            if (proc_rank == 0) {   // Root process
-                flog = fopen(logfile,"a");
-                fprintf(flog,"shot=HUNGRY, process %d\n", proc_rank); // Print root
-                for (int proc_i = 1; i < world_size; ++i) {
-                    MPI_Recv(msg, 100, MPI_CHAR, proc_i, MPI_LOG_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    fprintf(flog,"%s", msg);
-                }
-                fclose(flog);
-            } else {
-                sprintf(msg, "shot=HUNGRY, process %d\n", proc_rank);
-                MPI_Send(msg, strlen(msg) + 1, MPI_CHAR, 0, MPI_LOG_TAG, MPI_COMM_WORLD);
-            }
-
+            snprintf(message, 99, "shot=HUNGRY, process %d\n", proc_rank);
+            MPI_File_write(mpi_flog, message, strlen(message), MPI_CHAR, &mpi_status);
             continue;
         }
         ncy_shot=ncy_shot1+(ishot/nxshot)*dyshot;
@@ -352,26 +333,25 @@ int main(int argc, char **argv)
         zero_matrices(u, w, ws2, up2, vp1, wp1, us, ws, wp, us2, us1, wp2,
                       v, up1, nz, nx, up, ny, ws1, vs, vp2, vs1, vs2, vp);
 
-        // [Afa] These values won't change. Moved them out
-        xmax=l*dt*velmax;
-        nleft=ncx_shot-xmax/unit-10;
-        nright=ncx_shot+xmax/unit+10;
-        nfront=ncy_shot-xmax/unit-10;
-        nback=ncy_shot+xmax/unit+10;
-        ntop=ncz_shot-xmax/unit-10;
-        nbottom=ncz_shot+xmax/unit+10;
-        if(nleft<5) nleft=5;
-        if(nright>nx-5) nright=nx-5;
-        if(nfront<5) nfront=5;
-        if(nback>ny-5) nback=ny-5;
-        if(ntop<5) ntop=5;
-        if(nbottom>nz-5) nbottom=nz-5;
-        ntop = ntop-1;
-        nfront = nfront-1;
-        nleft = nleft-1;
-
         for(l=1;l<=lt;l++)
         {
+            xmax=l*dt*velmax;
+            nleft=ncx_shot-xmax/unit-10;
+            nright=ncx_shot+xmax/unit+10;
+            nfront=ncy_shot-xmax/unit-10;
+            nback=ncy_shot+xmax/unit+10;
+            ntop=ncz_shot-xmax/unit-10;
+            nbottom=ncz_shot+xmax/unit+10;
+            if(nleft<5) nleft=5;
+            if(nright>nx-5) nright=nx-5;
+            if(nfront<5) nfront=5;
+            if(nback>ny-5) nback=ny-5;
+            if(ntop<5) ntop=5;
+            if(nbottom>nz-5) nbottom=nz-5;
+            ntop = ntop-1;
+            nfront = nfront-1;
+            nleft = nleft-1;
+
             for(k=ntop;k<nbottom;k++)
                 for(j=nfront;j<nback;j++)
                     for(i=nleft;i<nright;i++)
@@ -393,9 +373,6 @@ int main(int argc, char **argv)
                         vvs2=vss[k*ny*nx+j*nx+i]*vss[k*ny*nx+j*nx+i];
                         drd1=dr1*vvs2;
                         drd2=dr2*vvs2;
-
-                        float tempux2, tempuy2, tempuz2, tempvx2, tempvy2, tempvz2, tempwx2, tempwy2,
-                                tempwz2, tempuxz, tempuxy, tempvyz, tempvxy, tempwxz, tempwyz;
 
                         tempux2=0.0f;
                         tempuy2=0.0f;
@@ -514,21 +491,7 @@ int main(int argc, char **argv)
         // [Afa] Do we need to keep the order of data?
         //        fwrite(up+169*ny*nx,sizeof(float),ny*nx,fout);    // This is the original fwrite
 
-        if (proc_rank == 0) {   // Master
-            for (int proc_index = 1; proc_index < world_size; ++proc_index) {
-                MPI_Request mpi_request;
-                int final_result_start_pos = loop_index + proc_index * loop_per_proc * ny * nx;
-                // [Afa] This is ishot - 1. final_result has the size of nshot * nx * ny * sizeof(float)
-                MPI_Irecv(final_result + final_result_start_pos, ny * nx, MPI_FLOAT, proc_index, MPI_RESULT_TAG, MPI_COMM_WORLD,
-                          &mpi_request);
-                // [Afa] I don't really care if all operations are successful. I'm not going to reuse the buffer, and it is freed after
-                //       the MPI_Finalize call
-            }
-        } else {
-            MPI_Request mpi_request;
-            MPI_Isend(up+169*ny*nx, ny*nx, MPI_FLOAT, 0, MPI_RESULT_TAG, MPI_COMM_WORLD, &mpi_request);
-            MPI_Wait(&mpi_request, MPI_STATUS_IGNORE);
-        }
+        MPI_File_write(mpi_fout, up+169*ny*nx, ny * nx, MPI_FLOAT, &mpi_status);
 
     }//for(ishot=1;ishot<=nshot;ishot++) end
     if (proc_rank == 0) {
@@ -565,9 +528,6 @@ int main(int argc, char **argv)
     MPI_Finalize();
 
     if (proc_rank == 0) {
-        fwrite(final_result, sizeof(float), ny * nx * nshot,fout);    // This is the original fwrite
-        free(final_result);
-
         gettimeofday(&end,NULL);
         all_time = (end.tv_sec-start.tv_sec)+(float)(end.tv_usec-start.tv_usec)/1000000.0;
         printf("run time:\t%f s\n",all_time);
@@ -584,3 +544,13 @@ int main(int argc, char **argv)
     // Why return 1?
     return 1;
 }
+
+
+
+
+
+
+
+
+
+
