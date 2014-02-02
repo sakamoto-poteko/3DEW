@@ -22,7 +22,7 @@ int main(int argc, char **argv)
     MPI_Initialized(&initFlag);
     if (!initFlag) {
         printf("MPI init failed\n");
-        return EXIT_FAILURE;
+        return 8;
     }
 
     MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
@@ -62,7 +62,7 @@ int main(int argc, char **argv)
     if(argc<4)
     {
         printf("please add 3 parameter: inpurfile, outfile, logfile\n");
-        exit(0);
+        exit(1);
     }
 
     message[99] = 0;    // Avoid string buffer overrun
@@ -85,7 +85,7 @@ int main(int argc, char **argv)
     if(fin == NULL)
     {
         printf("file %s is  not exist\n",infile);
-        exit(0);
+        exit(2);
     }
     fscanf(fin,"nx=%d\n",&nx);
     fscanf(fin,"ny=%d\n",&ny);
@@ -306,6 +306,8 @@ int main(int argc, char **argv)
     // [Afa] *About Nodes Number* nshot (i.e nxshot * nyshot) should be multiple of node numbers,
     //       or there will be hungry processes
     int loop_per_proc = ((int)nshot % world_size == 0) ? (nshot / world_size) : (nshot / world_size + 1);
+    printf("\x1B[31mDEBUG: World size %d, Loop per Proc %d, nshot %f, I am No. %d\n", world_size, loop_per_proc, nshot, proc_rank);
+
     //    for(ishot=1;ishot<=nshot;ishot++)   // [Afa] nshot is 20 in para1.in, but 200 in para2.in
     for (int loop_index = 0; loop_index < loop_per_proc; ++loop_index)
     {
@@ -313,10 +315,12 @@ int main(int argc, char **argv)
         if (ishot <= nshot) { // [Afa] ishot <= nshot
             printf("shot=%d, process %d\n",ishot, proc_rank);
             snprintf(message, 99, "shot=%d, process %d\n", ishot, proc_rank);
+            MPI_File_seek(mpi_flog, 0, MPI_SEEK_END);
             MPI_File_write(mpi_flog, message, strlen(message), MPI_CHAR, &mpi_status);
         } else {
             printf("shot=HUNGRY, process %d\n",proc_rank);
             snprintf(message, 99, "shot=HUNGRY, process %d\n", proc_rank);
+            MPI_File_seek(mpi_flog, 0, MPI_SEEK_END);
             MPI_File_write(mpi_flog, message, strlen(message), MPI_CHAR, &mpi_status);
             continue;
         }
@@ -491,6 +495,7 @@ int main(int argc, char **argv)
         // [Afa] Do we need to keep the order of data?
         //        fwrite(up+169*ny*nx,sizeof(float),ny*nx,fout);    // This is the original fwrite
 
+        MPI_File_seek(mpi_fout, 0, MPI_SEEK_END);
         MPI_File_write(mpi_fout, up + 169 * ny * nx, ny * nx, MPI_FLOAT, &mpi_status);
     }//for(ishot=1;ishot<=nshot;ishot++) end
 
@@ -541,7 +546,7 @@ int main(int argc, char **argv)
 
 
     // Why return 1?
-    return 1;
+    return 0;
 }
 
 
