@@ -71,7 +71,7 @@ int main(int argc, char **argv)
     strcpy(outfile,argv[2]);
     strcpy(logfile,argv[3]);
     strcpy(nodelog,logfile);
-    strcat(".node", nodelog);
+    strcat(nodelog, ".node");
 
     strcpy(tmp,"date ");
     strncat(tmp, ">> ",3);
