@@ -104,25 +104,25 @@ int main(int argc, char **argv)
     fscanf(fin,"dxshot=%d\n",&dxshot);
     fscanf(fin,"dyshot=%d\n",&dyshot);
     fclose(fin);
-
-    printf("\n--------workload parameter--------\n");
-    printf("nx=%d\n",nx);
-    printf("ny=%d\n",ny);
-    printf("nz=%d\n",nz);
-    printf("lt=%d\n",lt);
-    printf("nedge=%d\n",nedge);
-    printf("ncx_shot1=%d\n",ncx_shot1);
-    printf("ncy_shot1=%d\n",ncy_shot1);
-    printf("ncz_shot=%d\n",ncz_shot);
-    printf("nxshot=%d\n",nxshot);
-    printf("nyshot=%d\n",nyshot);
-    printf("frequency=%f\n",frequency);
-    printf("velmax=%f\n",velmax);
-    printf("dt=%f\n",dt);
-    printf("unit=%f\n",unit);
-    printf("dxshot=%d\n",dxshot);
-    printf("dyshot=%d\n\n",dyshot);
     if (proc_rank == 0) {   // Master
+        printf("\n--------workload parameter--------\n");
+        printf("nx=%d\n",nx);
+        printf("ny=%d\n",ny);
+        printf("nz=%d\n",nz);
+        printf("lt=%d\n",lt);
+        printf("nedge=%d\n",nedge);
+        printf("ncx_shot1=%d\n",ncx_shot1);
+        printf("ncy_shot1=%d\n",ncy_shot1);
+        printf("ncz_shot=%d\n",ncz_shot);
+        printf("nxshot=%d\n",nxshot);
+        printf("nyshot=%d\n",nyshot);
+        printf("frequency=%f\n",frequency);
+        printf("velmax=%f\n",velmax);
+        printf("dt=%f\n",dt);
+        printf("unit=%f\n",unit);
+        printf("dxshot=%d\n",dxshot);
+        printf("dyshot=%d\n\n",dyshot);
+
         flog = fopen(logfile,"a");
         fprintf(flog,"\n--------workload parameter--------\n");
         fprintf(flog,"nx=%d\n",nx);
@@ -306,7 +306,8 @@ int main(int argc, char **argv)
     // [Afa] *About Nodes Number* nshot (i.e nxshot * nyshot) should be multiple of node numbers,
     //       or there will be hungry processes
     int loop_per_proc = ((int)nshot % world_size == 0) ? (nshot / world_size) : (nshot / world_size + 1);
-    printf("\x1B[31mDEBUG: World size %d, Loop per Proc %d, nshot %f, I am No. %d\n", world_size, loop_per_proc, nshot, proc_rank);
+    printf("\x1B[31mDEBUG:\x1b[39;49m World size %d, Loop per Proc %d, nshot %f, I am No. %d\n",
+           world_size, loop_per_proc, nshot, proc_rank);
 
     //    for(ishot=1;ishot<=nshot;ishot++)   // [Afa] nshot is 20 in para1.in, but 200 in para2.in
     for (int loop_index = 0; loop_index < loop_per_proc; ++loop_index)
