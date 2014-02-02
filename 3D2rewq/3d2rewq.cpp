@@ -300,8 +300,8 @@ int main(int argc, char **argv)
     }   // [Afa] Truncate file. We need a prettier way
 
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_File_open(MPI_COMM_WORLD, outfile, MPI_MODE_APPEND | MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_fout);
-    MPI_File_open(MPI_COMM_WORLD, logfile, MPI_MODE_APPEND | MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_flog);
+    MPI_File_open(MPI_COMM_WORLD, outfile, MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_fout);
+    MPI_File_open(MPI_COMM_WORLD, logfile, MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_flog);
     // [Afa] *About Nodes Number* nshot (i.e nxshot * nyshot) should be multiple of node numbers,
     //       or there will be hungry processes
     int loop_per_proc = ((int)nshot % world_size == 0) ? (nshot / world_size) : (nshot / world_size + 1);
