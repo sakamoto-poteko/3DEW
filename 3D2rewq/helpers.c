@@ -86,7 +86,7 @@ void zero_matrices(float *u, float *w, float *ws2, float *up2, float *vp1, float
     // [Afa] That freaking big loop! Really bad for cache and SIMD. Decomposed it
     // AVX can process 8 float at a time
 
-    float *matrices[20];
+    float *matrices[21];
 
     matrices[0] = u;
     matrices[1] = w;
