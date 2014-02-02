@@ -38,7 +38,7 @@ int main(int argc, char **argv)
     int ishot,ncy_shot,ncx_shot;
     float unit;
     int nxshot,nyshot,dxshot,dyshot;
-    char infile[80],outfile[80],logfile[80],tmp[80];
+    char infile[80],outfile[80],logfile[80],tmp[80], nodelog[84];
     FILE  *fin, *fout, *flog;
     MPI_File mpi_flog, mpi_fout;
     MPI_Status mpi_status;
@@ -70,6 +70,8 @@ int main(int argc, char **argv)
     strcpy(infile,argv[1]);
     strcpy(outfile,argv[2]);
     strcpy(logfile,argv[3]);
+    strcpy(nodelog,logfile);
+    strcat(".node", nodelog);
 
     strcpy(tmp,"date ");
     strncat(tmp, ">> ",3);
@@ -301,7 +303,7 @@ int main(int argc, char **argv)
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_File_open(MPI_COMM_WORLD, outfile, MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_fout);
-    MPI_File_open(MPI_COMM_WORLD, logfile, MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_flog);
+    MPI_File_open(MPI_COMM_WORLD, nodelog, MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_flog);
     // [Afa] *About Nodes Number* nshot (i.e nxshot * nyshot) should be multiple of node numbers,
     //       or there will be hungry processes
     int loop_per_proc = ((int)nshot % world_size == 0) ? (nshot / world_size) : (nshot / world_size + 1);
@@ -313,15 +315,15 @@ int main(int argc, char **argv)
     {
         ishot = loop_index + proc_rank * loop_per_proc + 1; // [Afa] See commented code 2 lines above to understand this line
         if (ishot <= nshot) { // [Afa] ishot <= nshot
-            printf("shot=%d, process %d\n",ishot, proc_rank);
-            snprintf(message, 99, "shot=%d, process %d\n", ishot, proc_rank);
-            MPI_File_seek(mpi_flog, 0, MPI_SEEK_END);
-            MPI_File_write(mpi_flog, message, strlen(message), MPI_CHAR, &mpi_status);
+            printf("shot %d, process %d\n",ishot, proc_rank);
+            snprintf(message, 29, "shot %6d, process %6d\n", ishot, proc_rank);     // [Afa] Those numbers:
+            MPI_File_seek(mpi_flog, 28 * (ishot - 1), MPI_SEEK_SET);                // 28: string without '\0'
+            MPI_File_write(mpi_flog, message, 28, MPI_CHAR, &mpi_status);           // 29: with '\0'
         } else {
-            printf("shot=HUNGRY, process %d\n",proc_rank);
-            snprintf(message, 99, "shot=HUNGRY, process %d\n", proc_rank);
-            MPI_File_seek(mpi_flog, 0, MPI_SEEK_END);
-            MPI_File_write(mpi_flog, message, strlen(message), MPI_CHAR, &mpi_status);
+            printf("shot HUNGRY, process %d\n", proc_rank);
+            snprintf(message, 29, "shot HUNGRY, process %6d\n", proc_rank);
+            MPI_File_seek(mpi_flog, 28 * (ishot - 1), MPI_SEEK_SET);
+            MPI_File_write(mpi_flog, message, 28, MPI_CHAR, &mpi_status);
             continue;
         }
         ncy_shot=ncy_shot1+(ishot/nxshot)*dyshot;
