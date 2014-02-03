@@ -399,32 +399,41 @@ int main(int argc, char **argv)
                         tempwxz=0.0f;
                         tempwyz=0.0f;
 
-                        #pragma omp parallel
+                        #pragma omp parallel sections
                         {
+                            #pragma omp section
                             #pragma omp simd collapse(8)
                             for(kk=1;kk<=mm;kk++)
                                 tempux2=tempux2+c[kk-1][0]*(u[k*ny*nx+j*nx+(i+kk)]+u[k*ny*nx+j*nx+(i-kk)]);
+                            #pragma omp section
                             #pragma omp simd collapse(8)
                             for(kk=1;kk<=mm;kk++)
                                 tempuy2=tempuy2+c[kk-1][0]*(u[k*ny*nx+(j+kk)*nx+i]+u[k*ny*nx+(j-kk)*nx+i]);
+                            #pragma omp section
                             #pragma omp simd collapse(8)
                             for(kk=1;kk<=mm;kk++)
                                 tempuz2=tempuz2+c[kk-1][0]*(u[(k+kk)*ny*nx+j*nx+i]+u[(k-kk)*ny*nx+j*nx+i]);
+                            #pragma omp section
                             #pragma omp simd collapse(8)
                             for(kk=1;kk<=mm;kk++)
                                 tempvx2=tempvx2+c[kk-1][0]*(v[k*ny*nx+j*nx+(i+kk)]+v[k*ny*nx+j*nx+(i-kk)]);
+                            #pragma omp section
                             #pragma omp simd collapse(8)
                             for(kk=1;kk<=mm;kk++)
                                 tempvy2=tempvy2+c[kk-1][0]*(v[k*ny*nx+(j+kk)*nx+i]+v[k*ny*nx+(j-kk)*nx+i]);
+                            #pragma omp section
                             #pragma omp simd collapse(8)
                             for(kk=1;kk<=mm;kk++)
                                 tempvz2=tempvz2+c[kk-1][0]*(v[(k+kk)*ny*nx+j*nx+i]+v[(k-kk)*ny*nx+j*nx+i]);
+                            #pragma omp section
                             #pragma omp simd collapse(8)
                             for(kk=1;kk<=mm;kk++)
                                 tempwx2=tempwx2+c[kk-1][0]*(w[k*ny*nx+j*nx+(i+kk)]+w[k*ny*nx+j*nx+(i-kk)]);
+                            #pragma omp section
                             #pragma omp simd collapse(8)
                             for(kk=1;kk<=mm;kk++)
                                 tempwy2=tempwy2+c[kk-1][0]*(w[k*ny*nx+(j+kk)*nx+i]+w[k*ny*nx+(j-kk)*nx+i]);
+                            #pragma omp section
                             #pragma omp simd collapse(8)
                             for(kk=1;kk<=mm;kk++)
                                 tempwz2=tempwz2+c[kk-1][0]*(w[(k+kk)*ny*nx+j*nx+i]+w[(k-kk)*ny*nx+j*nx+i]);
