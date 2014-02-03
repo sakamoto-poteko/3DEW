@@ -110,7 +110,7 @@ void zero_matrices(float *u, float *w, float *ws2, float *up2, float *vp1, float
     matrices[19] = vs2;
     matrices[20] = vp;
 
-    #pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < 21; ++i) {
         #pragma omp simd collapse(8)
         for (int j = 0; j < t; ++j)
