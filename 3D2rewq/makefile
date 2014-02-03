@@ -1,9 +1,35 @@
-CC=icpc
+CC=mpicc
+CXX=mpicxx
+LINKER=mpicxx
 
-FFLAGS= -O3 
+TARGETDIR=build/
 
-all: 3d2rewq.cpp
-	$(CC) $(FFLAGS) 3d2rewq.cpp -o 3d2rewq
+COMMON= -O3 -openmp -xAVX -g
+CFLAGS= $(COMMON) -std=c99 $(PHI) -vec_report
+CXXFLAGS= $(COMMON) -std=c++11 $(PHI) -vec_report
+LDFLAGS= $(COMMON)
+
+CFILES=$(wildcard *.c)
+CPPFILES=$(wildcard *.cpp)
+
+COBJS=$(CFILES:%.c=%.c-objs)
+CPPOBJS=$(CPPFILES:%.cpp=%.cpp-objs)
+
+TARGET=3dew
+
+all: targetdir $(TARGET)
+
+targetdir:
+	mkdir -p $(TARGETDIR)
+
+$(TARGET): $(COBJS) $(CPPOBJS)
+	$(LINKER) $(LDFLAGS) $(addprefix $(TARGETDIR),$(COBJS)) $(addprefix $(TARGETDIR),$(CPPOBJS)) -o $(TARGETDIR)$(TARGET)
+
+%.c-objs: %.c
+	$(CC) -o $(TARGETDIR)$@ -c $(CFLAGS) $<
+
+%.cpp-objs: %.cpp
+	$(CXX) -o $(TARGETDIR)$@ -c $(CXXFLAGS) $<
 
 clean:
-	rm -f 3d2rewq
+	rm -rf $(addprefix $(TARGETDIR),$(COBJS)) $(addprefix $(TARGETDIR),$(CPPOBJS))
