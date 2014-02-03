@@ -1,0 +1,13 @@
+#!/bin/bash
+
+###specify the name of job
+#PBS -N myjob
+
+###prepare env for computing
+source /home/opt/intel/bin/compilervars.sh intel64
+source /home/opt/intel/bin/iccvars.sh intel64
+source /home/opt/intel/impi/4.1.2.040/intel64/bin/mpivars.sh intel64
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/intel/mic/coi/host-linux-release/lib/
+
+###just replace run.sh with your application
+/run.sh
