@@ -39,7 +39,7 @@ int main(int argc, char **argv)
     float unit;
     int nxshot,nyshot,dxshot,dyshot;
     char infile[80],outfile[80],logfile[80],tmp[80], nodelog[84];
-    FILE  *fin, *fout, *flog;
+    FILE  *fin, *fout, *flog, *fnode;
     MPI_File mpi_flog, mpi_fout;
     MPI_Status mpi_status;
     struct timeval start,end;
@@ -144,6 +144,9 @@ int main(int argc, char **argv)
         fprintf(flog,"dxshot=%d\n",dxshot);
         fprintf(flog,"dyshot=%d\n\n",dyshot);
         fclose(flog);
+        fnode = fopen(nodelog, "a");
+        fprintf(fnode,"World size: %d\n", world_size);
+        fclose(fnode);
     }
 
 #ifdef _WITH_PHI
