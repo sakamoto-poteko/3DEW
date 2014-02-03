@@ -398,37 +398,22 @@ int main(int argc, char **argv)
                         tempvxy=0.0f;
                         tempwxz=0.0f;
                         tempwyz=0.0f;
-
-                        #pragma omp parallel
+                        for(kk=1;kk<=mm;kk++)
                         {
-                            #pragma omp simd collapse(8)
-                            for(kk=1;kk<=mm;kk++)
-                                tempux2=tempux2+c[kk-1][0]*(u[k*ny*nx+j*nx+(i+kk)]+u[k*ny*nx+j*nx+(i-kk)]);
-                            #pragma omp simd collapse(8)
-                            for(kk=1;kk<=mm;kk++)
-                                tempuy2=tempuy2+c[kk-1][0]*(u[k*ny*nx+(j+kk)*nx+i]+u[k*ny*nx+(j-kk)*nx+i]);
-                            #pragma omp simd collapse(8)
-                            for(kk=1;kk<=mm;kk++)
-                                tempuz2=tempuz2+c[kk-1][0]*(u[(k+kk)*ny*nx+j*nx+i]+u[(k-kk)*ny*nx+j*nx+i]);
-                            #pragma omp simd collapse(8)
-                            for(kk=1;kk<=mm;kk++)
-                                tempvx2=tempvx2+c[kk-1][0]*(v[k*ny*nx+j*nx+(i+kk)]+v[k*ny*nx+j*nx+(i-kk)]);
-                            #pragma omp simd collapse(8)
-                            for(kk=1;kk<=mm;kk++)
-                                tempvy2=tempvy2+c[kk-1][0]*(v[k*ny*nx+(j+kk)*nx+i]+v[k*ny*nx+(j-kk)*nx+i]);
-                            #pragma omp simd collapse(8)
-                            for(kk=1;kk<=mm;kk++)
-                                tempvz2=tempvz2+c[kk-1][0]*(v[(k+kk)*ny*nx+j*nx+i]+v[(k-kk)*ny*nx+j*nx+i]);
-                            #pragma omp simd collapse(8)
-                            for(kk=1;kk<=mm;kk++)
-                                tempwx2=tempwx2+c[kk-1][0]*(w[k*ny*nx+j*nx+(i+kk)]+w[k*ny*nx+j*nx+(i-kk)]);
-                            #pragma omp simd collapse(8)
-                            for(kk=1;kk<=mm;kk++)
-                                tempwy2=tempwy2+c[kk-1][0]*(w[k*ny*nx+(j+kk)*nx+i]+w[k*ny*nx+(j-kk)*nx+i]);
-                            #pragma omp simd collapse(8)
-                            for(kk=1;kk<=mm;kk++)
-                                tempwz2=tempwz2+c[kk-1][0]*(w[(k+kk)*ny*nx+j*nx+i]+w[(k-kk)*ny*nx+j*nx+i]);
-                        }
+                            tempux2=tempux2+c[kk-1][0]*(u[k*ny*nx+j*nx+(i+kk)]+u[k*ny*nx+j*nx+(i-kk)]);
+                            tempuy2=tempuy2+c[kk-1][0]*(u[k*ny*nx+(j+kk)*nx+i]+u[k*ny*nx+(j-kk)*nx+i]);
+                            tempuz2=tempuz2+c[kk-1][0]*(u[(k+kk)*ny*nx+j*nx+i]+u[(k-kk)*ny*nx+j*nx+i]);
+
+                            tempvx2=tempvx2+c[kk-1][0]*(v[k*ny*nx+j*nx+(i+kk)]+v[k*ny*nx+j*nx+(i-kk)]);
+                            tempvy2=tempvy2+c[kk-1][0]*(v[k*ny*nx+(j+kk)*nx+i]+v[k*ny*nx+(j-kk)*nx+i]);
+                            tempvz2=tempvz2+c[kk-1][0]*(v[(k+kk)*ny*nx+j*nx+i]+v[(k-kk)*ny*nx+j*nx+i]);
+
+                            tempwx2=tempwx2+c[kk-1][0]*(w[k*ny*nx+j*nx+(i+kk)]+w[k*ny*nx+j*nx+(i-kk)]);
+                            tempwy2=tempwy2+c[kk-1][0]*(w[k*ny*nx+(j+kk)*nx+i]+w[k*ny*nx+(j-kk)*nx+i]);
+                            tempwz2=tempwz2+c[kk-1][0]*(w[(k+kk)*ny*nx+j*nx+i]+w[(k-kk)*ny*nx+j*nx+i]);
+
+                        } //for(kk=1;kk<=mm;kk++) end
+
                         tempux2=(tempux2+c0*u[k*ny*nx+j*nx+i])*vvp2*dtx*dtx;
                         tempuy2=(tempuy2+c0*u[k*ny*nx+j*nx+i])*vvs2*dtx*dtx;
                         tempuz2=(tempuz2+c0*u[k*ny*nx+j*nx+i])*vvs2*dtz*dtz;
