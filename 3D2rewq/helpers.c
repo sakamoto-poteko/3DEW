@@ -11,6 +11,7 @@
 #include "helpers.h"
 
 //#include "discardme.h"        // This line is for Afa's IDE. Discard it
+//#define __STDC_IEC_559__      // This line is for Afa's IDE. Discard it
 
 #ifdef _WITH_PHI
 // If we have Xeon Phi
@@ -24,6 +25,8 @@ void zero_matrices(float *u, float *w, float *ws2, float *up2, float *vp1, float
     // [Afa] Might be a really BAD practice, since it takes a lot of bandwidth
     // But should be helpful since CPU needs more time to init the array
 
+    // [Afa] CONCERN: Phi has only 8G memory. Split the array is necessary. Do it when we get on Phi
+
     // [Afa] offload documentation:
     // http://software.intel.com/sites/products/documentation/doclib/iss/2013/compiler/cpp-lin/GUID-EAB414FD-40C6-4054-B094-0BA70824E2A2.htm
 #pragma offload target(mic) \
@@ -32,105 +35,72 @@ void zero_matrices(float *u, float *w, float *ws2, float *up2, float *vp1, float
     out(us:length(t)) out(us1:length(t)) out(us2:length(t)) out(vs:length(t)) out(vs1:length(t)) out(vs2:length(t)) \
     out(ws:length(t)) out(ws1:length(t)) out(ws2:length(t))
     {
-        float *matrices[21];
-
-        matrices[0] = u;
-        matrices[1] = w;
-        matrices[2] = ws2;
-        matrices[3] = up2;
-        matrices[4] = vp1;
-        matrices[5] = wp1;
-        matrices[6] = us;
-        matrices[7] = ws;
-        matrices[8] = wp;
-        matrices[9] = us2;
-        matrices[10] = us1;
-        matrices[11] = wp2;
-        matrices[12] = v;
-        matrices[13] = up1;
-        matrices[14] = up;
-        matrices[15] = ws1;
-        matrices[16] = vs;
-        matrices[17] = vp2;
-        matrices[18] = vs1;
-        matrices[19] = vs2;
-        matrices[20] = vp;
-
-        #pragma omp parallel for
-        for (int i = 0; i < 21; ++i) {
+        #pragma parallel sections
+        {
+            #pragma omp section
             #pragma omp simd collapse(8)
-            for (int j = 0; j < t; ++j)
-                matrices[i][j] = 0.0f;
+            for (int i = 0; i < t; ++i) u   [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) v   [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) w   [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) up  [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) up1 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) up2 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) vp  [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) vp1 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) vp2 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) wp  [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) wp1 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) wp2 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) us  [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) us1 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) us2 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) vs  [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) vs1 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) vs2 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) ws  [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) ws1 [i] = 0.0f;
+            #pragma omp section
+            #pragma omp simd collapse(8)
+            for (int i = 0; i < t; ++i) ws2 [i] = 0.0f;
         }
-        // OR the code below
-        // Which is faster?
-        // Get a Phi machine and do the profiling
-//        #pragma parallel sections
-//        {
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) u   [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) v   [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) w   [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) up  [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) up1 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) up2 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) vp  [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) vp1 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) vp2 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) wp  [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) wp1 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) wp2 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) us  [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) us1 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) us2 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) vs  [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) vs1 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) vs2 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) ws  [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) ws1 [i] = 0.0f;
-//            #pragma omp section
-//            #pragma omp simd collapse(8)
-//            for (int i = 0; i < t; ++i) ws2 [i] = 0.0f;
-//        }
     }
 }
 #else
@@ -167,12 +137,22 @@ void zero_matrices(float *u, float *w, float *ws2, float *up2, float *vp1, float
     matrices[19] = vs2;
     matrices[20] = vp;
 
+
+    // After a bunch of profiling, this is the fastest way to init the array
+    // In a loop of 20, this omp loop is 6 seconds faster than sequential execution,
+    // seq exec is 9 seconds faster than omp sections
+#ifdef __STDC_IEC_559__
+    #pragma omp parallel for
+    for (int i = 0; i < 21; ++i)
+        memset(matrices[i], 0, sizeof(float) * t);
+#else
     #pragma omp parallel for
     for (int i = 0; i < 21; ++i) {
         #pragma omp simd collapse(8)
         for (int j = 0; j < t; ++j)
             matrices[i][j] = 0.0f;
     }
+#endif
 }
 
 #endif
