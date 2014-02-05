@@ -7,6 +7,8 @@
 
 #include <mpi.h>
 #include <omp.h>
+#include <mkl.h>
+
 
 #include "global.h"
 #include "helpers.h"
@@ -28,9 +30,8 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    int i,j,k,kk,kkk,l,mm=5;
+    int l,mm=5;
     int nx,ny,nz,lt,nedge;
-    int nleft,nright,nfront,nback,ntop,nbottom;
     float frequency;
     float velmax;
     float dt;
@@ -53,10 +54,6 @@ int main(int argc, char **argv)
     float *wave;
     float nshot,t0,tt,c0;
     float dtx,dtz,dtxz,dr1,dr2,dtx4,dtz4,dtxz4;
-    float xmax,px,sx;
-    float vvp2,drd1,drd2,vvs2, tempux2, tempuy2, tempuz2, tempvx2,
-            tempvy2, tempvz2, tempwx2, tempwy2, tempwz2, tempuxz,
-            tempuxy, tempvyz, tempvxy, tempwxz, tempwyz;
     char message[100];
 
     if(argc<4)
@@ -209,9 +206,9 @@ int main(int argc, char **argv)
     // TODO: Will compiler optimize the `condition'?
     //       i.e Can I write `for(i=0;i< (nz < 210 ? nz : 210);i++)'?
     int condition = nz < 210 ? nz : 210;
-    for(i=0; i < condition;i++) {
-        for(j=0;j<ny;j++) {
-            for(k=0;k<nx;k++) {
+    for(int i=0; i < condition;i++) {
+        for(int j=0;j<ny;j++) {
+            for(int k=0;k<nx;k++) {
                 vpp[i*ny*nx+j*nx+k]=2300.;
                 vss[i*ny*nx+j*nx+k]=1232.;
                 density[i*ny*nx+j*nx+k]=1.;
@@ -219,10 +216,10 @@ int main(int argc, char **argv)
         }
     }
 
-    condition = i < (nz < 260 ? nz : 260);
-    for(i=210; i < condition;i++) {
-        for(j=0;j<ny;j++) {
-            for(k=0;k<nx;k++) {
+    condition = nz < 260 ? nz : 260;
+    for(int i=210; i < condition;i++) {
+        for(int j=0;j<ny;j++) {
+            for(int k=0;k<nx;k++) {
                 vpp[i*ny*nx+j*nx+k]=2800.;
                 vss[i*ny*nx+j*nx+k]=1509.;
                 density[i*ny*nx+j*nx+k]=2.;
@@ -230,9 +227,9 @@ int main(int argc, char **argv)
         }
     }
 
-    for(i=260;i<nz;i++) {
-        for(j=0;j<ny;j++) {
-            for(k=0;k<nx;k++)
+    for(int i=260;i<nz;i++) {
+        for(int j=0;j<ny;j++) {
+            for(int k=0;k<nx;k++)
             {
                 vpp[i*ny*nx+j*nx+k]=3500.;
                 vss[i*ny*nx+j*nx+k]=1909.;
@@ -267,8 +264,8 @@ int main(int argc, char **argv)
     c[3][1]=-0.0099;
     c[4][1]=0.0008;
 
-    for(i=0;i<5;i++)
-        for(j=0;j<5;j++)
+    for(int i=0;i<5;i++)
+        for(int j=0;j<5;j++)
             c[j][2+i]=c[i][1]*c[j][1];
     /*
      * mm == 5, c =
@@ -344,13 +341,13 @@ int main(int argc, char **argv)
 
         for(l=1;l<=lt;l++)
         {
-            xmax=l*dt*velmax;
-            nleft=ncx_shot-xmax/unit-10;
-            nright=ncx_shot+xmax/unit+10;
-            nfront=ncy_shot-xmax/unit-10;
-            nback=ncy_shot+xmax/unit+10;
-            ntop=ncz_shot-xmax/unit-10;
-            nbottom=ncz_shot+xmax/unit+10;
+            float xmax=l*dt*velmax;
+            int nleft=ncx_shot-xmax/unit-10;
+            int nright=ncx_shot+xmax/unit+10;
+            int nfront=ncy_shot-xmax/unit-10;
+            int nback=ncy_shot+xmax/unit+10;
+            int ntop=ncz_shot-xmax/unit-10;
+            int nbottom=ncz_shot+xmax/unit+10;
             if(nleft<5) nleft=5;
             if(nright>nx-5) nright=nx-5;
             if(nfront<5) nfront=5;
@@ -361,10 +358,18 @@ int main(int argc, char **argv)
             nfront = nfront-1;
             nleft = nleft-1;
 
-            for(k=ntop;k<nbottom;k++)
-                for(j=nfront;j<nback;j++)
-                    for(i=nleft;i<nright;i++)
+            // Although up, vp, wp, us, vs, ws are modified below, we're sure there's no race condition.
+            // Each loop accesses a UNIQUE element in the array, and the value is not used, no need to worry about the dirty cache
+#pragma omp parallel for shared(u) shared(v) shared(w) shared(up1) shared(up2) shared(vp1) shared(vp2) shared(wp1) \
+    shared(wp2) shared(us) shared(us1) shared(us2) shared(vs) shared(vs1) shared(vs2) shared(ws) shared(ws1) shared(ws2) \
+    shared(vss) shared(vpp) shared(dr1) shared(dr2) shared(dtz) shared(dtx) shared(ncx_shot) shared(ncy_shot) shared(ncz_shot) \
+    shared(wave)
+            for(int k=ntop;k<nbottom;k++) {
+                for(int j=nfront;j<nback;j++) {
+                    for(int i=nleft;i<nright;i++)
                     {
+                        float vvp2,drd1,drd2,vvs2;
+                        float px,sx;
                         if(i==ncx_shot-1&&j==ncy_shot-1&&k==ncz_shot-1)
                         {
                             px=1.;
@@ -383,40 +388,47 @@ int main(int argc, char **argv)
                         drd1=dr1*vvs2;
                         drd2=dr2*vvs2;
 
-                        tempux2=0.0f;
-                        tempuy2=0.0f;
-                        tempuz2=0.0f;
-                        tempvx2=0.0f;
-                        tempvy2=0.0f;
-                        tempvz2=0.0f;
-                        tempwx2=0.0f;
-                        tempwy2=0.0f;
-                        tempwz2=0.0f;
-                        tempuxz=0.0f;
-                        tempuxy=0.0f;
-                        tempvyz=0.0f;
-                        tempvxy=0.0f;
-                        tempwxz=0.0f;
-                        tempwyz=0.0f;
-                        for(kk=1;kk<=mm;kk++)
-                        {
-                            tempux2=tempux2+c[kk-1][0]*(u[k*ny*nx+j*nx+(i+kk)]+u[k*ny*nx+j*nx+(i-kk)]);
-                            tempuy2=tempuy2+c[kk-1][0]*(u[k*ny*nx+(j+kk)*nx+i]+u[k*ny*nx+(j-kk)*nx+i]);
-                            tempuz2=tempuz2+c[kk-1][0]*(u[(k+kk)*ny*nx+j*nx+i]+u[(k-kk)*ny*nx+j*nx+i]);
+                        float tempux2=0.0f;
+                        float tempuy2=0.0f;
+                        float tempuz2=0.0f;
+                        float tempvx2=0.0f;
+                        float tempvy2=0.0f;
+                        float tempvz2=0.0f;
+                        float tempwx2=0.0f;
+                        float tempwy2=0.0f;
+                        float tempwz2=0.0f;
+                        float tempuxz=0.0f;
+                        float tempuxy=0.0f;
+                        float tempvyz=0.0f;
+                        float tempvxy=0.0f;
+                        float tempwxz=0.0f;
+                        float tempwyz=0.0f;
 
-                            tempvx2=tempvx2+c[kk-1][0]*(v[k*ny*nx+j*nx+(i+kk)]+v[k*ny*nx+j*nx+(i-kk)]);
-                            tempvy2=tempvy2+c[kk-1][0]*(v[k*ny*nx+(j+kk)*nx+i]+v[k*ny*nx+(j-kk)*nx+i]);
-                            tempvz2=tempvz2+c[kk-1][0]*(v[(k+kk)*ny*nx+j*nx+i]+v[(k-kk)*ny*nx+j*nx+i]);
+                        // This will make the compiler do the vectorization
+                        for(int kk=1;kk<=mm;kk++) {
+                            tempux2 += c[kk-1][0]*(u[k*ny*nx+j*nx+(i+kk)]+u[k*ny*nx+j*nx+(i-kk)]);
+                            tempuy2 += c[kk-1][0]*(u[k*ny*nx+(j+kk)*nx+i]+u[k*ny*nx+(j-kk)*nx+i]);
+                            tempuz2 += c[kk-1][0]*(u[(k+kk)*ny*nx+j*nx+i]+u[(k-kk)*ny*nx+j*nx+i]);
+                        }
+                        for(int kk=1;kk<=mm;kk++) {
+                            tempvx2 += c[kk-1][0]*(v[k*ny*nx+j*nx+(i+kk)]+v[k*ny*nx+j*nx+(i-kk)]);
+                            tempvy2 += c[kk-1][0]*(v[k*ny*nx+(j+kk)*nx+i]+v[k*ny*nx+(j-kk)*nx+i]);
+                            tempvz2 += c[kk-1][0]*(v[(k+kk)*ny*nx+j*nx+i]+v[(k-kk)*ny*nx+j*nx+i]);
+                        }
+                        for(int kk=1;kk<=mm;kk++) {
+                            tempwx2 += c[kk-1][0]*(w[k*ny*nx+j*nx+(i+kk)]+w[k*ny*nx+j*nx+(i-kk)]);
+                            tempwy2 += c[kk-1][0]*(w[k*ny*nx+(j+kk)*nx+i]+w[k*ny*nx+(j-kk)*nx+i]);
+                            tempwz2 += c[kk-1][0]*(w[(k+kk)*ny*nx+j*nx+i]+w[(k-kk)*ny*nx+j*nx+i]);
+                        }
 
-                            tempwx2=tempwx2+c[kk-1][0]*(w[k*ny*nx+j*nx+(i+kk)]+w[k*ny*nx+j*nx+(i-kk)]);
-                            tempwy2=tempwy2+c[kk-1][0]*(w[k*ny*nx+(j+kk)*nx+i]+w[k*ny*nx+(j-kk)*nx+i]);
-                            tempwz2=tempwz2+c[kk-1][0]*(w[(k+kk)*ny*nx+j*nx+i]+w[(k-kk)*ny*nx+j*nx+i]);
-
-                        } //for(kk=1;kk<=mm;kk++) end
+                         //for(kk=1;kk<=mm;kk++) end
 
                         tempux2=(tempux2+c0*u[k*ny*nx+j*nx+i])*vvp2*dtx*dtx;
+                        // u[k][j][i]
                         tempuy2=(tempuy2+c0*u[k*ny*nx+j*nx+i])*vvs2*dtx*dtx;
+                        // u[k][j][i]
                         tempuz2=(tempuz2+c0*u[k*ny*nx+j*nx+i])*vvs2*dtz*dtz;
+                        // u[k][j][i]
 
                         tempvx2=(tempvx2+c0*v[k*ny*nx+j*nx+i])*vvs2*dtx*dtx;
                         tempvy2=(tempvy2+c0*v[k*ny*nx+j*nx+i])*vvp2*dtx*dtx;
@@ -426,14 +438,16 @@ int main(int argc, char **argv)
                         tempwy2=(tempwy2+c0*w[k*ny*nx+j*nx+i])*vvs2*dtx*dtx;
                         tempwz2=(tempwz2+c0*w[k*ny*nx+j*nx+i])*vvp2*dtz*dtz;
 
-                        for(kk=1;kk<=mm;kk++)
+                        // This loop is auto-vectorized
+                        for(int kk=1;kk<=mm;kk++)
                         {
-                            for(kkk=1;kkk<=mm;kkk++)
+                            for(int kkk=1;kkk<=mm;kkk++)
                             {
                                 tempuxz=tempuxz+c[kkk-1][1+kk]*(u[(k+kkk)*ny*nx+j*nx+(i+kk)]
                                         -u[(k-kkk)*ny*nx+j*nx+(i+kk)]
                                         +u[(k-kkk)*ny*nx+j*nx+(i-kk)]
                                         -u[(k+kkk)*ny*nx+j*nx+(i-kk)]);
+                                // u[k+kkk][j][i+kk], u[k-kkk][j][i+kk], u[k-kkk][j][i-kk], u[k+kkk][j][i-kk]
                                 tempuxy=tempuxy+c[kkk-1][1+kk]*(u[k*ny*nx+(j+kkk)*nx+(i+kk)]
                                         -u[k*ny*nx+(j-kkk)*nx+(i+kk)]
                                         +u[k*ny*nx+(j-kkk)*nx+(i-kk)]
@@ -458,9 +472,12 @@ int main(int argc, char **argv)
                                         -w[(k+kkk)*ny*nx+j*nx+(i-kk)]);
                             } // for(kkk=1;kkk<=mm;kkk++) end
                         } //for(kk=1;kk<=mm;kk++) end
+
+                        // LValues below are only changed here
                         up[k*ny*nx+j*nx+i]=2.*up1[k*ny*nx+j*nx+i]-up2[k*ny*nx+j*nx+i]
                                 +tempux2+tempwxz*vvp2*dtz*dtx
                                 +tempvxy*vvp2*dtz*dtx;
+                        // up1[k][j][j], up2[k][j][i], up[k][j][i]
                         vp[k*ny*nx+j*nx+i]=2.*vp1[k*ny*nx+j*nx+i]-vp2[k*ny*nx+j*nx+i]
                                 +tempvy2+tempuxy*vvp2*dtz*dtx
                                 +tempwyz*vvp2*dtz*dtx;
@@ -475,9 +492,15 @@ int main(int argc, char **argv)
                         ws[k*ny*nx+j*nx+i]=2.*ws1[k*ny*nx+j*nx+i]-ws2[k*ny*nx+j*nx+i]+tempwx2+tempwy2
                                 -tempuxz*vvs2*dtz*dtx-tempvyz*vvs2*dtz*dtx;
                     }//for(i=nleft;i<nright;i++) end
-            for(k=ntop;k<nbottom;k++)
-                for(j=nfront;j<nback;j++)
-                    for(i=nleft;i<nright;i++)
+                }
+            }
+
+            // Again, those are UNIQUE access. Safe to share
+#pragma omp parallel for shared(up) shared(us) shared(vp) shared(vs) shared(wp) shared(ws) shared(u) shared(v) shared(w) \
+    shared(up2) shared(up1) shared(us2) shared(us1) shared(vp2) shared(vp1) shared(wp2) shared(wp1) shared(ws2) shared(ws1)
+            for(int k=ntop;k<nbottom;k++)
+                for(int j=nfront;j<nback;j++)
+                    for(int i=nleft;i<nright;i++)
                     {
                         u[k*ny*nx+j*nx+i]=up[k*ny*nx+j*nx+i]+us[k*ny*nx+j*nx+i];
                         v[k*ny*nx+j*nx+i]=vp[k*ny*nx+j*nx+i]+vs[k*ny*nx+j*nx+i];

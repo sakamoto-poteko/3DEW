@@ -6,12 +6,12 @@
  *  Afa.L Cheng <alpha@tomatoeskit.org>
  */
 
+#include <string.h>
 #include <omp.h>
 
 #include "helpers.h"
 
 //#include "discardme.h"        // This line is for Afa's IDE. Discard it
-//#define __STDC_IEC_559__      // This line is for Afa's IDE. Discard it
 
 #ifdef _WITH_PHI
 // If we have Xeon Phi
@@ -142,7 +142,7 @@ void zero_matrices(float *u, float *w, float *ws2, float *up2, float *vp1, float
     // In a loop of 20, this omp loop is 6 seconds faster than sequential execution,
     // seq exec is 9 seconds faster than omp sections
 #ifdef __STDC_IEC_559__
-    #pragma omp parallel for
+#pragma omp parallel for shared(matrices)
     for (int i = 0; i < 21; ++i)
         memset(matrices[i], 0, sizeof(float) * t);
 #else
