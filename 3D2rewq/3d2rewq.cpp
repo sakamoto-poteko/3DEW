@@ -1,3 +1,4 @@
+#include <mpi.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <math.h>
@@ -5,10 +6,9 @@
 #include <string.h>
 #include "sys/time.h"
 
-#include <mpi.h>
 #include <omp.h>
 #include <mkl.h>
-
+#include <immintrin.h>
 
 #include "global.h"
 #include "helpers.h"
@@ -146,31 +146,6 @@ int main(int argc, char **argv)
         fclose(fnode);
     }
 
-#ifdef _WITH_PHI
-    // [Afa] It is recommended that for Intel Xeon Phi data is 64-byte aligned.
-    // Upon successful completion, posix_memalign() shall return zero
-    if (posix_memalign((void **)&u  , 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&v  , 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&w  , 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&up , 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&up1, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&up2, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&vp , 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&vp1, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&vp2, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&wp , 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&wp1, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&wp2, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&us , 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&us1, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&us2, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&vs , 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&vs1, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&vs2, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&ws , 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&ws1, 64, sizeof(float)*nz*ny*nx)) return 2;
-    if (posix_memalign((void **)&ws2, 64, sizeof(float)*nz*ny*nx)) return 2;
-#else
     u       = (float*)malloc(sizeof(float)*nz*ny*nx);
     v       = (float*)malloc(sizeof(float)*nz*ny*nx);
     w       = (float*)malloc(sizeof(float)*nz*ny*nx);
@@ -192,8 +167,6 @@ int main(int argc, char **argv)
     ws      = (float*)malloc(sizeof(float)*nz*ny*nx);
     ws1     = (float*)malloc(sizeof(float)*nz*ny*nx);
     ws2     = (float*)malloc(sizeof(float)*nz*ny*nx);
-#endif
-    // [Afa] Those are not offloaded to phi yet
     vpp     = (float*)malloc(sizeof(float)*nz*ny*nx);
     density = (float*)malloc(sizeof(float)*nz*ny*nx);
     vss     = (float*)malloc(sizeof(float)*nz*ny*nx);
@@ -267,6 +240,9 @@ int main(int argc, char **argv)
     for(int i=0;i<5;i++)
         for(int j=0;j<5;j++)
             c[j][2+i]=c[i][1]*c[j][1];
+
+    float c_col0[] = {1.66666665, -0.23809525, 0.03968254, -0.004960318, 0.0003174603};
+    if (mm!=5) memset(c_col0, 0, 5);
     /*
      * mm == 5, c =
      * 1.666667    0.833330    0.694439    -0.198416   0.049583    -0.008250   0.000667
@@ -369,16 +345,14 @@ int main(int argc, char **argv)
                     for(int i=nleft;i<nright;i++)
                     {
                         float vvp2,drd1,drd2,vvs2;
-                        float px,sx;
+                        float px,sx = 0.;
                         if(i==ncx_shot-1&&j==ncy_shot-1&&k==ncz_shot-1)
                         {
                             px=1.;
-                            sx=0.;
                         }
                         else
                         {
                             px=0.;
-                            sx=0.;
                         }
                         vvp2=vpp[k*ny*nx+j*nx+i]*vpp[k*ny*nx+j*nx+i];
                         drd1=dr1*vvp2;
@@ -388,47 +362,43 @@ int main(int argc, char **argv)
                         drd1=dr1*vvs2;
                         drd2=dr2*vvs2;
 
-                        float tempux2=0.0f;
-                        float tempuy2=0.0f;
-                        float tempuz2=0.0f;
-                        float tempvx2=0.0f;
-                        float tempvy2=0.0f;
-                        float tempvz2=0.0f;
-                        float tempwx2=0.0f;
-                        float tempwy2=0.0f;
-                        float tempwz2=0.0f;
-                        float tempuxz=0.0f;
-                        float tempuxy=0.0f;
-                        float tempvyz=0.0f;
-                        float tempvxy=0.0f;
-                        float tempwxz=0.0f;
-                        float tempwyz=0.0f;
+                        float tempux2 = 0;
+                        float tempuy2 = 0;
+                        float tempuz2 = 0;
+                        float tempvx2 = 0;
+                        float tempvy2 = 0;
+                        float tempvz2 = 0;
+                        float tempwx2 = 0;
+                        float tempwy2 = 0;
+                        float tempwz2 = 0;
+                        float tempuxz = 0;
+                        float tempuxy = 0;
+                        float tempvyz = 0;
+                        float tempvxy = 0;
+                        float tempwxz = 0;
+                        float tempwyz = 0;
 
                         // This will make the compiler do the vectorization
+                        // array `c' has only 5 rows, this means mm must be or less than 5
                         for(int kk=1;kk<=mm;kk++) {
-                            tempux2 += c[kk-1][0]*(u[k*ny*nx+j*nx+(i+kk)]+u[k*ny*nx+j*nx+(i-kk)]);
-                            tempuy2 += c[kk-1][0]*(u[k*ny*nx+(j+kk)*nx+i]+u[k*ny*nx+(j-kk)*nx+i]);
-                            tempuz2 += c[kk-1][0]*(u[(k+kk)*ny*nx+j*nx+i]+u[(k-kk)*ny*nx+j*nx+i]);
-                        }
-                        for(int kk=1;kk<=mm;kk++) {
-                            tempvx2 += c[kk-1][0]*(v[k*ny*nx+j*nx+(i+kk)]+v[k*ny*nx+j*nx+(i-kk)]);
-                            tempvy2 += c[kk-1][0]*(v[k*ny*nx+(j+kk)*nx+i]+v[k*ny*nx+(j-kk)*nx+i]);
-                            tempvz2 += c[kk-1][0]*(v[(k+kk)*ny*nx+j*nx+i]+v[(k-kk)*ny*nx+j*nx+i]);
-                        }
-                        for(int kk=1;kk<=mm;kk++) {
-                            tempwx2 += c[kk-1][0]*(w[k*ny*nx+j*nx+(i+kk)]+w[k*ny*nx+j*nx+(i-kk)]);
-                            tempwy2 += c[kk-1][0]*(w[k*ny*nx+(j+kk)*nx+i]+w[k*ny*nx+(j-kk)*nx+i]);
-                            tempwz2 += c[kk-1][0]*(w[(k+kk)*ny*nx+j*nx+i]+w[(k-kk)*ny*nx+j*nx+i]);
+                            tempux2 += c_col0[kk-1]*(u[k*ny*nx+j*nx+(i+kk)]+u[k*ny*nx+j*nx+(i-kk)]);
+                            tempuy2 += c_col0[kk-1]*(u[k*ny*nx+(j+kk)*nx+i]+u[k*ny*nx+(j-kk)*nx+i]);
+                            tempuz2 += c_col0[kk-1]*(u[(k+kk)*ny*nx+j*nx+i]+u[(k-kk)*ny*nx+j*nx+i]);
+
+                            tempvx2 += c_col0[kk-1]*(v[k*ny*nx+j*nx+(i+kk)]+v[k*ny*nx+j*nx+(i-kk)]);
+                            tempvy2 += c_col0[kk-1]*(v[k*ny*nx+(j+kk)*nx+i]+v[k*ny*nx+(j-kk)*nx+i]);
+                            tempvz2 += c_col0[kk-1]*(v[(k+kk)*ny*nx+j*nx+i]+v[(k-kk)*ny*nx+j*nx+i]);
+
+                            tempwx2 += c_col0[kk-1]*(w[k*ny*nx+j*nx+(i+kk)]+w[k*ny*nx+j*nx+(i-kk)]);
+                            tempwy2 += c_col0[kk-1]*(w[k*ny*nx+(j+kk)*nx+i]+w[k*ny*nx+(j-kk)*nx+i]);
+                            tempwz2 += c_col0[kk-1]*(w[(k+kk)*ny*nx+j*nx+i]+w[(k-kk)*ny*nx+j*nx+i]);
                         }
 
                          //for(kk=1;kk<=mm;kk++) end
 
                         tempux2=(tempux2+c0*u[k*ny*nx+j*nx+i])*vvp2*dtx*dtx;
-                        // u[k][j][i]
                         tempuy2=(tempuy2+c0*u[k*ny*nx+j*nx+i])*vvs2*dtx*dtx;
-                        // u[k][j][i]
                         tempuz2=(tempuz2+c0*u[k*ny*nx+j*nx+i])*vvs2*dtz*dtz;
-                        // u[k][j][i]
 
                         tempvx2=(tempvx2+c0*v[k*ny*nx+j*nx+i])*vvs2*dtx*dtx;
                         tempvy2=(tempvy2+c0*v[k*ny*nx+j*nx+i])*vvp2*dtx*dtx;
@@ -439,37 +409,43 @@ int main(int argc, char **argv)
                         tempwz2=(tempwz2+c0*w[k*ny*nx+j*nx+i])*vvp2*dtz*dtz;
 
                         // This loop is auto-vectorized
-                        for(int kk=1;kk<=mm;kk++)
+                        for(int kkk=1;kkk<=mm;kkk++)
                         {
-                            for(int kkk=1;kkk<=mm;kkk++)
+                            for(int kk=1;kk<=mm;kk++)
                             {
-                                tempuxz=tempuxz+c[kkk-1][1+kk]*(u[(k+kkk)*ny*nx+j*nx+(i+kk)]
-                                        -u[(k-kkk)*ny*nx+j*nx+(i+kk)]
-                                        +u[(k-kkk)*ny*nx+j*nx+(i-kk)]
-                                        -u[(k+kkk)*ny*nx+j*nx+(i-kk)]);
+                                tempuxz+=c[kkk-1][1+kk]*(
+                                            +u[(k+kkk)*ny*nx+j*nx+(i+kk)]
+                                            -u[(k-kkk)*ny*nx+j*nx+(i+kk)]
+                                            +u[(k-kkk)*ny*nx+j*nx+(i-kk)]
+                                            -u[(k+kkk)*ny*nx+j*nx+(i-kk)]);
                                 // u[k+kkk][j][i+kk], u[k-kkk][j][i+kk], u[k-kkk][j][i-kk], u[k+kkk][j][i-kk]
-                                tempuxy=tempuxy+c[kkk-1][1+kk]*(u[k*ny*nx+(j+kkk)*nx+(i+kk)]
-                                        -u[k*ny*nx+(j-kkk)*nx+(i+kk)]
-                                        +u[k*ny*nx+(j-kkk)*nx+(i-kk)]
-                                        -u[k*ny*nx+(j+kkk)*nx+(i-kk)]);
+                                tempuxy+=c[kkk-1][1+kk]*(
+                                            +u[k*ny*nx+(j+kkk)*nx+(i+kk)]
+                                            -u[k*ny*nx+(j-kkk)*nx+(i+kk)]
+                                            +u[k*ny*nx+(j-kkk)*nx+(i-kk)]
+                                            -u[k*ny*nx+(j+kkk)*nx+(i-kk)]);
 
-                                tempvyz=tempvyz+c[kkk-1][1+kk]*(v[(k+kkk)*ny*nx+(j+kk)*nx+i]
-                                        -v[(k-kkk)*ny*nx+(j+kk)*nx+i]
-                                        +v[(k-kkk)*ny*nx+(j-kk)*nx+i]
-                                        -v[(k+kkk)*ny*nx+(j-kk)*nx+i]);
-                                tempvxy=tempvxy+c[kkk-1][1+kk]*(v[k*ny*nx+(j+kkk)*nx+(i+kk)]
-                                        -v[k*ny*nx+(j-kkk)*nx+(i+kk)]
-                                        +v[k*ny*nx+(j-kkk)*nx+(i-kk)]
-                                        -v[k*ny*nx+(j+kkk)*nx+(i-kk)]);
+                                tempvyz+=c[kkk-1][1+kk]*(
+                                            +v[(k+kkk)*ny*nx+(j+kk)*nx+i]
+                                            -v[(k-kkk)*ny*nx+(j+kk)*nx+i]
+                                            +v[(k-kkk)*ny*nx+(j-kk)*nx+i]
+                                            -v[(k+kkk)*ny*nx+(j-kk)*nx+i]);
+                                tempvxy+=c[kkk-1][1+kk]*(
+                                            +v[k*ny*nx+(j+kkk)*nx+(i+kk)]
+                                            -v[k*ny*nx+(j-kkk)*nx+(i+kk)]
+                                            +v[k*ny*nx+(j-kkk)*nx+(i-kk)]
+                                            -v[k*ny*nx+(j+kkk)*nx+(i-kk)]);
 
-                                tempwyz=tempwyz+c[kkk-1][1+kk]*(w[(k+kkk)*ny*nx+(j+kk)*nx+i]
-                                        -w[(k-kkk)*ny*nx+(j+kk)*nx+i]
-                                        +w[(k-kkk)*ny*nx+(j-kk)*nx+i]
-                                        -w[(k+kkk)*ny*nx+(j-kk)*nx+i]);
-                                tempwxz=tempwxz+c[kkk-1][1+kk]*(w[(k+kkk)*ny*nx+j*nx+(i+kk)]
-                                        -w[(k-kkk)*ny*nx+j*nx+(i+kk)]
-                                        +w[(k-kkk)*ny*nx+j*nx+(i-kk)]
-                                        -w[(k+kkk)*ny*nx+j*nx+(i-kk)]);
+                                tempwyz+=c[kkk-1][1+kk]*(
+                                            +w[(k+kkk)*ny*nx+(j+kk)*nx+i]
+                                            -w[(k-kkk)*ny*nx+(j+kk)*nx+i]
+                                            +w[(k-kkk)*ny*nx+(j-kk)*nx+i]
+                                            -w[(k+kkk)*ny*nx+(j-kk)*nx+i]);
+                                tempwxz+=c[kkk-1][1+kk]*(
+                                            +w[(k+kkk)*ny*nx+j*nx+(i+kk)]
+                                            -w[(k-kkk)*ny*nx+j*nx+(i+kk)]
+                                            +w[(k-kkk)*ny*nx+j*nx+(i-kk)]
+                                            -w[(k+kkk)*ny*nx+j*nx+(i-kk)]);
                             } // for(kkk=1;kkk<=mm;kkk++) end
                         } //for(kk=1;kk<=mm;kk++) end
 
@@ -498,27 +474,52 @@ int main(int argc, char **argv)
             // Again, those are UNIQUE access. Safe to share
 #pragma omp parallel for shared(up) shared(us) shared(vp) shared(vs) shared(wp) shared(ws) shared(u) shared(v) shared(w) \
     shared(up2) shared(up1) shared(us2) shared(us1) shared(vp2) shared(vp1) shared(wp2) shared(wp1) shared(ws2) shared(ws1)
-            for(int k=ntop;k<nbottom;k++)
-                for(int j=nfront;j<nback;j++)
-                    for(int i=nleft;i<nright;i++)
-                    {
-                        u[k*ny*nx+j*nx+i]=up[k*ny*nx+j*nx+i]+us[k*ny*nx+j*nx+i];
-                        v[k*ny*nx+j*nx+i]=vp[k*ny*nx+j*nx+i]+vs[k*ny*nx+j*nx+i];
-                        w[k*ny*nx+j*nx+i]=wp[k*ny*nx+j*nx+i]+ws[k*ny*nx+j*nx+i];
+                for(int k=ntop;k<nbottom;k++) {
+                    int vec_len = nright - nleft;
+                    for(int j=nfront;j<nback;j++) {
+//                        for(int i=nleft;i<nright;i++)
+//                        {
+//                            u[k*ny*nx+j*nx+i]=up[k*ny*nx+j*nx+i]+us[k*ny*nx+j*nx+i];
+//                            v[k*ny*nx+j*nx+i]=vp[k*ny*nx+j*nx+i]+vs[k*ny*nx+j*nx+i];
+//                            w[k*ny*nx+j*nx+i]=wp[k*ny*nx+j*nx+i]+ws[k*ny*nx+j*nx+i];
 
-                        up2[k*ny*nx+j*nx+i]=up1[k*ny*nx+j*nx+i];
-                        up1[k*ny*nx+j*nx+i]=up[k*ny*nx+j*nx+i];
-                        us2[k*ny*nx+j*nx+i]=us1[k*ny*nx+j*nx+i];
-                        us1[k*ny*nx+j*nx+i]=us[k*ny*nx+j*nx+i];
-                        vp2[k*ny*nx+j*nx+i]=vp1[k*ny*nx+j*nx+i];
-                        vp1[k*ny*nx+j*nx+i]=vp[k*ny*nx+j*nx+i];
-                        vs2[k*ny*nx+j*nx+i]=vs1[k*ny*nx+j*nx+i];
-                        vs1[k*ny*nx+j*nx+i]=vs[k*ny*nx+j*nx+i];
-                        wp2[k*ny*nx+j*nx+i]=wp1[k*ny*nx+j*nx+i];
-                        wp1[k*ny*nx+j*nx+i]=wp[k*ny*nx+j*nx+i];
-                        ws2[k*ny*nx+j*nx+i]=ws1[k*ny*nx+j*nx+i];
-                        ws1[k*ny*nx+j*nx+i]=ws[k*ny*nx+j*nx+i];
-                    }//for(i=nleft;i<nright;i++) end
+//                            up2[k*ny*nx+j*nx+i]=up1[k*ny*nx+j*nx+i];
+//                            up1[k*ny*nx+j*nx+i]=up[k*ny*nx+j*nx+i];
+//                            us2[k*ny*nx+j*nx+i]=us1[k*ny*nx+j*nx+i];
+//                            us1[k*ny*nx+j*nx+i]=us[k*ny*nx+j*nx+i];
+//                            vp2[k*ny*nx+j*nx+i]=vp1[k*ny*nx+j*nx+i];
+//                            vp1[k*ny*nx+j*nx+i]=vp[k*ny*nx+j*nx+i];
+//                            vs2[k*ny*nx+j*nx+i]=vs1[k*ny*nx+j*nx+i];
+//                            vs1[k*ny*nx+j*nx+i]=vs[k*ny*nx+j*nx+i];
+//                            wp2[k*ny*nx+j*nx+i]=wp1[k*ny*nx+j*nx+i];
+//                            wp1[k*ny*nx+j*nx+i]=wp[k*ny*nx+j*nx+i];
+//                            ws2[k*ny*nx+j*nx+i]=ws1[k*ny*nx+j*nx+i];
+//                            ws1[k*ny*nx+j*nx+i]=ws[k*ny*nx+j*nx+i];
+//                        }//for(i=nleft;i<nright;i++) end
+
+                        int ary_position = k*ny*nx+j*nx+nleft;
+
+                        vsAdd   (vec_len,   up + ary_position,  us + ary_position, u + ary_position);
+                        vsAdd   (vec_len,   vp + ary_position,  vs + ary_position, v + ary_position);
+                        vsAdd   (vec_len,   wp + ary_position,  ws + ary_position, w + ary_position);
+
+                        cblas_scopy(vec_len, up1 + ary_position, 1, up2 + ary_position, 1);
+                        cblas_scopy(vec_len, up + ary_position, 1,  up1 + ary_position, 1);
+                        cblas_scopy(vec_len, vp1 + ary_position, 1, vp2 + ary_position, 1);
+                        cblas_scopy(vec_len, vp + ary_position, 1,  vp1 + ary_position, 1);
+                        cblas_scopy(vec_len, wp1 + ary_position, 1, wp2 + ary_position, 1);
+                        cblas_scopy(vec_len, wp + ary_position, 1,  wp1 + ary_position, 1);
+                        cblas_scopy(vec_len, us1 + ary_position, 1, us2 + ary_position, 1);
+                        cblas_scopy(vec_len, us + ary_position, 1,  us1 + ary_position, 1);
+                        cblas_scopy(vec_len, vs1 + ary_position, 1, vs2 + ary_position, 1);
+                        cblas_scopy(vec_len, vs + ary_position, 1,  vs1 + ary_position, 1);
+                        cblas_scopy(vec_len, ws1 + ary_position, 1, ws2 + ary_position, 1);
+                        cblas_scopy(vec_len, ws + ary_position, 1,  ws1 + ary_position, 1);
+
+                    }
+                }
+
+
         }//for(l=1;l<=lt;l++) end
         // [Afa] Do we need to keep the order of data?
         // [Afa Update] Yes, we do need to KEEP THE ORDER of data
