@@ -1,13 +1,13 @@
-CC=mpicc
-CXX=mpicxx
-LINKER=mpicxx
+CC=mpiicc
+CXX=mpiicpc
+LINKER=mpiicpc
 
 TARGETDIR=build/
 
 COMMON= -O3 -openmp -xAVX -g
 CFLAGS= $(COMMON) -std=c99 $(PHI) -vec_report -opt-report-phase=offload
 CXXFLAGS= $(COMMON) -std=c++11 $(PHI) -vec_report -opt-report-phase=offload 
-LDFLAGS= $(COMMON)
+LDFLAGS= $(COMMON) -mkl
 
 CFILES=$(wildcard *.c)
 CPPFILES=$(wildcard *.cpp)

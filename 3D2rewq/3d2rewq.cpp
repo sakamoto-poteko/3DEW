@@ -5,17 +5,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sys/time.h"
+#include <unistd.h>
 
 #include <omp.h>
 #include <mkl.h>
 #include <immintrin.h>
 
-#include "global.h"
-#include "helpers.h"
-
-
-
 #define PIE 3.1415926   // [Afa] Delicious fruit pie
+#define MPI_LOG_TAG 10
+#define MPI_RESULT_TAG 20
+
+int proc_rank;
+int world_size;
+
+void zero_matrices(float *u, float *w, float *ws2, float *up2, float *vp1, float *wp1, float *us, float *ws, float *wp,
+                   float *us2, float *us1, float *wp2, float *v, float *up1, int nz, int nx, float *up,
+                   int ny, float *ws1, float *vs, float *vp2, float *vs1, float *vs2, float *vp);
 
 int main(int argc, char **argv)
 {
@@ -241,8 +246,14 @@ int main(int argc, char **argv)
         for(int j=0;j<5;j++)
             c[j][2+i]=c[i][1]*c[j][1];
 
-    float c_col0[] = {1.66666665, -0.23809525, 0.03968254, -0.004960318, 0.0003174603};
-    if (mm!=5) memset(c_col0, 0, 5);
+    float c_col0[]      __attribute__((aligned(16)))
+            = {1.66666665, -0.23809525, 0.03968254, -0.004960318, 0.0003174603};
+    float c_col0_sum[]  __attribute__((aligned(16)))
+            = { 1.66666665, -0.23809525, 0.03968254, -0.004960318, 0.0003174603,
+                -2.927222164,
+                0.0003174603, -0.004960318, 0.03968254, -0.23809525, 1.66666665
+              };
+    if (mm!=5) {memset(c_col0, 0, 5 * sizeof(float)); memset(c_col0_sum, 0, 11 * sizeof(float));}
     /*
      * mm == 5, c =
      * 1.666667    0.833330    0.694439    -0.198416   0.049583    -0.008250   0.000667
@@ -334,6 +345,8 @@ int main(int argc, char **argv)
             nfront = nfront-1;
             nleft = nleft-1;
 
+            // Cmt out
+            int ntmp = ntop;
             // Although up, vp, wp, us, vs, ws are modified below, we're sure there's no race condition.
             // Each loop accesses a UNIQUE element in the array, and the value is not used, no need to worry about the dirty cache
 #pragma omp parallel for shared(u) shared(v) shared(w) shared(up1) shared(up2) shared(vp1) shared(vp2) shared(wp1) \
@@ -378,8 +391,6 @@ int main(int argc, char **argv)
                         float tempwxz = 0;
                         float tempwyz = 0;
 
-                        // This will make the compiler do the vectorization
-                        // array `c' has only 5 rows, this means mm must be or less than 5
                         for(int kk=1;kk<=mm;kk++) {
                             tempux2 += c_col0[kk-1]*(u[k*ny*nx+j*nx+(i+kk)]+u[k*ny*nx+j*nx+(i-kk)]);
                             tempuy2 += c_col0[kk-1]*(u[k*ny*nx+(j+kk)*nx+i]+u[k*ny*nx+(j-kk)*nx+i]);
@@ -393,8 +404,6 @@ int main(int argc, char **argv)
                             tempwy2 += c_col0[kk-1]*(w[k*ny*nx+(j+kk)*nx+i]+w[k*ny*nx+(j-kk)*nx+i]);
                             tempwz2 += c_col0[kk-1]*(w[(k+kk)*ny*nx+j*nx+i]+w[(k-kk)*ny*nx+j*nx+i]);
                         }
-
-                         //for(kk=1;kk<=mm;kk++) end
 
                         tempux2=(tempux2+c0*u[k*ny*nx+j*nx+i])*vvp2*dtx*dtx;
                         tempuy2=(tempuy2+c0*u[k*ny*nx+j*nx+i])*vvs2*dtx*dtx;
@@ -580,6 +589,55 @@ int main(int argc, char **argv)
     return 0;
 }
 
+void zero_matrices(float *u, float *w, float *ws2, float *up2, float *vp1, float *wp1, float *us, float *ws, float *wp,
+                   float *us2, float *us1, float *wp2, float *v, float *up1, int nz, int nx, float *up,
+                   int ny, float *ws1, float *vs, float *vp2, float *vs1, float *vs2, float *vp)
+{
+    int t = nx * ny * nz;       // [Afa] Total elements number in an array
+    // [Afa] That freaking big loop! Really bad for cache and SIMD. Decomposed it
+    // AVX can process 8 float at a time
+
+    float *matrices[21];
+
+    matrices[0] = u;
+    matrices[1] = w;
+    matrices[2] = ws2;
+    matrices[3] = up2;
+    matrices[4] = vp1;
+    matrices[5] = wp1;
+    matrices[6] = us;
+    matrices[7] = ws;
+    matrices[8] = wp;
+    matrices[9] = us2;
+    matrices[10] = us1;
+    matrices[11] = wp2;
+    matrices[12] = v;
+    matrices[13] = up1;
+    matrices[14] = up;
+    matrices[15] = ws1;
+    matrices[16] = vs;
+    matrices[17] = vp2;
+    matrices[18] = vs1;
+    matrices[19] = vs2;
+    matrices[20] = vp;
+
+
+    // After a bunch of profiling, this is the fastest way to init the array
+    // In a loop of 20, this omp loop is 6 seconds faster than sequential execution,
+    // seq exec is 9 seconds faster than omp sections
+#ifdef __STDC_IEC_559__
+#pragma omp parallel for shared(matrices)
+    for (int i = 0; i < 21; ++i)
+        memset(matrices[i], 0, sizeof(float) * t);
+#else
+    #pragma omp parallel for
+    for (int i = 0; i < 21; ++i) {
+        #pragma omp simd collapse(8)
+        for (int j = 0; j < t; ++j)
+            matrices[i][j] = 0.0f;
+    }
+#endif
+}
 
 
 
